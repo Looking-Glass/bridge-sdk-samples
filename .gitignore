@@ -1,0 +1,11 @@
+BridgeInProcSample/build/
+BridgeInProcSampleDX11/build/
+BridgeInProcSampleDX11Interactive/build/
+BridgeInProcSampleDX12/build/
+BridgeInProcSampleDX12Interactive/build/
+BridgeInProcSampleMetalNativeInteractive/build/
+BridgeInProcSampleNative/build/
+BridgeInProcSampleNativeInteractive/build/
+BridgeInProcSampleOSX/build/
+BridgeInProcSampleOSXMetal_arm64/build/
+BridgeInProcSampleOSXMetal_x86_64/build/

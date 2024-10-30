@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BridgeInProcSampleDX12": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

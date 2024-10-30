@@ -953,7 +953,7 @@ int main(void)
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            float tx_offset = 0.005f;
+            float tx_offset = 0.009f;
             float tx = -(float)(g_vx * g_vy - 1) / 2.0f * tx_offset;
 
             for (int y = 0; y < g_vy; y++)
@@ -969,7 +969,7 @@ int main(void)
                 }
             }
 
-            g_controller->DrawInteropQuiltTextureGL(g_wnd, g_render_texture, PixelFormats::RGBA, g_quilt_width, g_quilt_height, g_vx, g_vy, 1.0f, 1.0f);
+            g_controller->DrawInteropQuiltTextureGL(g_wnd, g_render_texture, PixelFormats::RGBA, g_quilt_width, g_quilt_height, g_vx, g_vy, g_displayaspect, 1.0f);
         }
         
         glfwMakeContextCurrent(window);

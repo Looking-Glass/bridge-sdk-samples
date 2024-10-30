@@ -18,10 +18,13 @@ Developers can use the following rendering backends:
 
 Beyond that, in order to render to the Looking Glass display, your application must be able to:
 
-- Generate a borderless fullscreen window at a specific position
 - Distort the camera's projection matrix
 - Render multiple views to a texture
-- Apply a shader to the texture
+- Pass that texture to the SDK
+
+If you would like to have a single window interactive application you will also must be able to:
+
+- Generate a borderless fullscreen window at a specific position
 
 Also, your end user must have [Looking Glass Bridge](https://lookingglassfactory.com/software/looking-glass-bridge) installed on their machine, this provides the requisite libraries.
 

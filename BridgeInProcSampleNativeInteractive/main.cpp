@@ -22,100 +22,6 @@ extern "C" {
 
 using namespace std;
 
-struct Dim
-{
-    unsigned long width  = 0;
-    unsigned long height = 0;
-};
-
-struct BridgeVersionAndPostfix
-{
-    unsigned long major = 0;
-    unsigned long minor = 0;
-    unsigned long build = 0; 
-    wstring       postfix;
-};
-
-struct Calibration
-{
-    float center = 0;
-    float pitch = 0;
-    float slope = 0;
-    int width = 0;
-    int height = 0;
-    float dpi = 0;
-    float flip_x = 0;
-    int invView = 0;
-    float viewcone = 0.0f;
-    float fringe = 0.0f;
-    int cell_pattern_mode = 0;
-    vector<CalibrationSubpixelCell> cells;
-};
-
-struct DefaultQuitSettings
-{
-    float aspect        = 0.0f;
-    int   quilt_width   = 0;
-    int   quilt_height  = 0;
-    int   quilt_columns = 0;
-    int   quilt_rows    = 0;
-};
-
-struct WindowPos
-{
-    long x = 0;
-    long y = 0;
-};
-
-unique_ptr<Controller>      g_controller     = nullptr;
-WINDOW_HANDLE               g_wnd            = 0;
-unsigned long               g_display_index  = 0;
-float                       g_viewcone       = 0.0f;
-int                         g_device_type    = 0;
-float                       g_aspect         = 0.0f;
-int                         g_quilt_width    = 0;
-int                         g_quilt_height   = 0;
-int                         g_vx             = 0;
-int                         g_vy             = 0;
-unsigned long               g_output_width   = 800;
-unsigned long               g_output_height  = 600;
-int                         g_window_width   = 800;
-int                         g_window_height  = 600;
-int                         g_view_width     = 0;
-int                         g_view_height    = 0;
-GLuint                      g_render_texture = 0;
-GLuint                      g_render_fbo     = 0;
-GLuint                      g_depth_buffer   = 0;
-int                         g_invview        = 0;
-int                         g_ri             = 0;
-int                         g_bi             = 0;
-float                       g_tilt           = 0.0f;
-float                       g_displayaspect  = 0.0f;
-float                       g_fringe         = 0.0f;
-float                       g_subp           = 0.0f;
-float                       g_pitch          = 0.0f;
-float                       g_center         = 0.0f;
-WindowPos                   g_window_position;
-BridgeVersionAndPostfix     g_active_bridge_version;
-vector<unsigned long>       g_displays;
-vector<wstring>             g_display_serials;
-vector<wstring>             g_display_names;
-vector<Dim>                 g_display_dimensions;
-vector<int>                 g_display_hw_enums;
-vector<Calibration>         g_display_calibrations;
-vector<int>                 g_display_viewinvs;
-vector<int>                 g_display_ris;
-vector<int>                 g_display_bis;
-vector<float>               g_display_tilts;
-vector<float>               g_display_aspects;
-vector<float>               g_display_fringes;
-vector<float>               g_display_subps;
-vector<float>               g_display_viewcones;
-vector<float>               g_display_centers;
-vector<float>               g_display_pitches;
-vector<DefaultQuitSettings> g_display_default_quilt_settings;
-vector<WindowPos>           g_display_window_positions;
-
 typedef void (*PFNGLTEXIMAGE2DPROC)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * pixels);
 
 #ifdef __APPLE__
@@ -394,339 +300,7 @@ void calculateProjectionMatrix(GLfloat* matrix, float aspectRatio, float fov, fl
     matrix[14] = -(2 * farPlane * nearPlane) / (farPlane - nearPlane);
 }
 
-void populate_displays()
-{
-    int lkg_display_count = 0;
-    g_controller->GetDisplays(&lkg_display_count, nullptr);
-
-    g_displays.resize(lkg_display_count);
-    g_controller->GetDisplays(&lkg_display_count, g_displays.data());
-
-    for (auto it : g_displays)
-    {
-        {
-            wstring serial;
-            int serial_count = 0;
-
-            g_controller->GetDeviceSerialForDisplay(it, &serial_count, nullptr);
-
-            serial.resize(serial_count);
-            g_controller->GetDeviceSerialForDisplay(it, &serial_count, serial.data());
-
-            g_display_serials.push_back(serial);
-        }
-
-        {
-            wstring name;
-            int name_count = 0;
-
-            g_controller->GetDeviceNameForDisplay(it, &name_count, nullptr);
-
-            name.resize(name_count);
-            g_controller->GetDeviceNameForDisplay(it, &name_count, name.data());
-
-            g_display_names.push_back(name);
-        }
-
-        {
-            Dim dim;
-            g_controller->GetDimensionsForDisplay(it, &dim.width, &dim.height);
-
-            g_display_dimensions.push_back(dim);
-        }
-
-        {
-            int hw_enum = -1;
-            g_controller->GetDeviceTypeForDisplay(it, &hw_enum);
-
-            g_display_hw_enums.push_back(hw_enum);
-        }
-
-        {
-            Calibration calibration;
-            int number_of_cells = 0;
-
-            g_controller->GetCalibrationForDisplay(it,
-                                                   &calibration.center,
-                                                   &calibration.pitch,
-                                                   &calibration.slope,
-                                                   &calibration.width,
-                                                   &calibration.height,
-                                                   &calibration.dpi,
-                                                   &calibration.flip_x,
-                                                   &calibration.invView,
-                                                   &calibration.viewcone,
-                                                   &calibration.fringe,
-                                                   &calibration.cell_pattern_mode,
-                                                   &number_of_cells,
-                                                   nullptr);
-
-            calibration.cells.resize(number_of_cells);
-
-            g_controller->GetCalibrationForDisplay(it,
-                                                   &calibration.center,
-                                                   &calibration.pitch,
-                                                   &calibration.slope,
-                                                   &calibration.width,
-                                                   &calibration.height,
-                                                   &calibration.dpi,
-                                                   &calibration.flip_x,
-                                                   &calibration.invView,
-                                                   &calibration.viewcone,
-                                                   &calibration.fringe,
-                                                   &calibration.cell_pattern_mode,
-                                                   &number_of_cells,
-                                                   calibration.cells.data());
-
-            g_display_calibrations.push_back(calibration);
-        }
-
-        {
-            int invview;
-            g_controller->GetInvViewForDisplay(it, &invview);
-
-            g_display_viewinvs.push_back(invview);
-        }
-
-        {
-            int ri = 0;
-            g_controller->GetRiForDisplay(it, &ri);
-
-            g_display_ris.push_back(ri);
-        }
-
-        {
-            int bi = 0;
-            g_controller->GetBiForDisplay(it, &bi);
-
-            g_display_bis.push_back(bi);
-        }
-
-        {
-            float tilt = 0.0f;
-            g_controller->GetTiltForDisplay(it, &tilt);
-
-            g_display_tilts.push_back(tilt);
-        }
-
-        {
-            float aspect = 0.0f;
-            g_controller->GetDisplayAspectForDisplay(it, &aspect);
-
-            g_display_aspects.push_back(aspect);
-        }
-
-        {
-            float fringe = 0.0f;
-            g_controller->GetFringeForDisplay(it, &fringe);
-
-            g_display_fringes.push_back(fringe);
-        }
-
-        {
-            float subp = 0.0f;
-            g_controller->GetSubpForDisplay(it, &subp);
-
-            g_display_subps.push_back(subp);
-        }
-
-        {
-            float viewcone = 0.0f;
-            g_controller->GetViewConeForDisplay(it, &viewcone);
-
-            g_display_viewcones.push_back(viewcone);
-        }
-
-        {
-            float center = 0.0f;
-            g_controller->GetCenterForDisplay(it, &center);
-
-            g_display_centers.push_back(center);
-        }
-
-        {
-            float pitch = 0.0f;
-            g_controller->GetPitchForDisplay(it, &pitch);
-
-            g_display_pitches.push_back(pitch);
-        }
-
-        {
-            DefaultQuitSettings quilt_settings;
-            g_controller->GetDefaultQuiltSettingsForDisplay(it, &quilt_settings.aspect, &quilt_settings.quilt_width, &quilt_settings.quilt_height, &quilt_settings.quilt_columns, &quilt_settings.quilt_rows);
-
-            g_display_default_quilt_settings.push_back(quilt_settings);
-        }
-
-        {
-            WindowPos pos;
-            g_controller->GetWindowPositionForDisplay(it, &pos.x, &pos.y);
-
-            g_display_window_positions.push_back(pos);
-        }
-    }
-}
-
-void populate_window_values()
-{
-    g_controller->GetDisplayForWindow(g_wnd, &g_display_index);
-    g_controller->GetDeviceType(g_wnd, &g_device_type);
-    g_controller->GetDefaultQuiltSettings(g_wnd, &g_aspect, &g_quilt_width, &g_quilt_height, &g_vx, &g_vy);
-    g_controller->GetWindowDimensions(g_wnd, &g_output_width, &g_output_height);
-    g_controller->GetViewCone(g_wnd, &g_viewcone);
-    g_controller->GetInvView(g_wnd, &g_invview);
-    g_controller->GetRi(g_wnd, &g_ri);
-    g_controller->GetBi(g_wnd, &g_bi);
-    g_controller->GetTilt(g_wnd, &g_tilt);
-    g_controller->GetDisplayAspect(g_wnd, &g_displayaspect);
-    g_controller->GetFringe(g_wnd, &g_fringe);
-    g_controller->GetSubp(g_wnd, &g_subp);
-    g_controller->GetPitch(g_wnd, &g_pitch);
-    g_controller->GetCenter(g_wnd, &g_center);
-    g_controller->GetWindowPosition(g_wnd, &g_window_position.x, &g_window_position.y);
-}
-
-void populate_active_bridge_version()
-{
-    int number_of_postfix_wchars = 0;
-
-    g_controller->GetBridgeVersion(&g_active_bridge_version.major,
-                                   &g_active_bridge_version.minor,
-                                   &g_active_bridge_version.build,
-                                   &number_of_postfix_wchars,
-                                   nullptr);
-
-    g_active_bridge_version.postfix.resize(number_of_postfix_wchars);
-
-    g_controller->GetBridgeVersion(&g_active_bridge_version.major,
-                                   &g_active_bridge_version.minor,
-                                   &g_active_bridge_version.build,
-                                   &number_of_postfix_wchars,
-                                   g_active_bridge_version.postfix.data());
-
-}
-
-void initBridge(GLFWwindow* window)
-{
-    g_controller = make_unique<Controller>();
-
-#ifdef _WIN32
-    if (g_controller->Initialize(L"BridgeInProcSampleNative"))   
-#else
-    if (g_controller->Initialize("BridgeInProcSampleNative"))
-#endif
-    {
-        populate_active_bridge_version();
-        populate_displays();
- 
-        if (!g_displays.empty())
-        if (g_controller->InstanceOffscreenWindowGL(&g_wnd, g_displays.front()))
-        {
-            populate_window_values();
-
-            wstring name;
-            int     name_size = 0;
-            g_controller->GetDeviceName(g_wnd, &name_size, nullptr);
-
-            name.resize(name_size);
-            g_controller->GetDeviceName(g_wnd, &name_size, name.data());
-
-            wstring serial;
-            int     serial_size = 0;
-
-            g_controller->GetDeviceSerial(g_wnd, &serial_size, nullptr);
-
-            serial.resize(serial_size);
-            g_controller->GetDeviceSerial(g_wnd, &serial_size, serial.data());
-
-            // mlc: we are using an offscreen so we need the display's position
-            unsigned long display_index = 0;
-            g_controller->GetDisplayForWindow(g_wnd, &display_index);
-
-            WindowPos pos;
-            g_controller->GetWindowPositionForDisplay(display_index, &pos.x, &pos.y);
-
-            // Get the monitor corresponding to the display_index
-            int monitorCount;
-            GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
-            GLFWmonitor* monitor = nullptr;
-
-            // mlc: glfw uses its own indices, match based on position
-            for (int i = 0; i < monitorCount; i++)
-            {
-                int glfw_xpos = 0;
-                int glfw_ypos = 0;
-
-                glfwGetMonitorPos(monitors[i], &glfw_xpos, &glfw_ypos);
-
-                if (pos.x == glfw_xpos)
-                if (pos.y == glfw_ypos)
-                {
-                    monitor = monitors[i];
-                    break;
-                }
-            }
-
-            const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-            glfwSetWindowMonitor(window, monitor, 0, 0, g_output_width, g_output_height, GLFW_DONT_CARE);
-
-            glfwSetWindowTitle(window, "");
-
-            g_window_width  = g_output_width;
-            g_window_height = g_output_height;
-
-            glfwSetWindowSize(window, g_window_width, g_window_height);
-        }
-    }
-
-    if (g_wnd == 0)
-    {
-        // mlc: couldn't init bridge, run desktop head only
-        g_controller = nullptr;
-    }
-    else
-    {
-        // mlc: bridge inited, finish setup
-        g_view_width  = int(float(g_quilt_width) / float(g_vx));
-        g_view_height = int(float(g_quilt_height) / float(g_vy));
-
-        glGenTextures(1, &g_render_texture);
-        glBindTexture(GL_TEXTURE_2D, g_render_texture);
-
-        // Set texture parameters
-        ogl::glTexImage2D(GL_TEXTURE_2D, 
-                     0, 
-                     GL_RGBA, 
-                     g_quilt_width, 
-                     g_quilt_height, 
-                     0, 
-                     GL_RGBA,
-                     GL_UNSIGNED_BYTE, 
-                     nullptr); 
-
-        // Generate and bind the renderbuffer for depth
-        ogl::glGenRenderbuffers(1, &g_depth_buffer);
-        ogl::glBindRenderbuffer(GL_RENDERBUFFER, g_depth_buffer); 
-
-        // Create a depth buffer
-        ogl::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32, g_quilt_width, g_quilt_height);
-
-        // Generate the framebuffer
-        ogl::glGenFramebuffers(1, &g_render_fbo);
-        ogl::glBindFramebuffer(GL_FRAMEBUFFER, g_render_fbo);
-
-        // Attach the texture to the framebuffer as a color attachment
-        ogl::glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_render_texture, 0);
-
-        // Attach the renderbuffer as a depth attachment
-        ogl::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, g_depth_buffer);
-
-        ogl::glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        ogl::glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    }
-}
-
-void drawScene(GLuint shaderProgram, GLuint vao, float tx = 0.0f, bool invert = false) 
+void drawScene(GLuint shaderProgram, GLuint vao, BridgeData& bridgeData, float tx = 0.0f, bool invert = false) 
 {
     ogl::glBindVertexArray(vao);
     ogl::glUseProgram(shaderProgram);
@@ -742,8 +316,7 @@ void drawScene(GLuint shaderProgram, GLuint vao, float tx = 0.0f, bool invert = 
         view = glm::scale(view, glm::vec3(1, -1, 1));
     }
 
-    float aspectRatio = float(g_window_width) / g_window_height;
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), bridgeData.displayaspect, 0.1f, 100.0f);
 
     ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
     ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -806,6 +379,9 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 int main(void)
 {
     GLFWwindow* window;
+    GLuint render_texture = 0;
+    GLuint render_fbo = 0;
+    GLuint depth_buffer = 0;
 
     if (!glfwInit())
         return -1;
@@ -826,7 +402,142 @@ int main(void)
 
     ogl::loadOpenGLFunctions();
     
-    initBridge(window);
+    // Create the controller
+    std::unique_ptr<Controller> controller = std::make_unique<Controller>();
+
+    #ifdef _WIN32
+    if (!controller->Initialize(L"BridgeInProcSampleNative"))
+    #else
+    if (!controller->Initialize("BridgeInProcSampleNative"))
+    #endif
+    {
+        controller = nullptr;
+    }
+
+    // Create BridgeData
+    WINDOW_HANDLE wnd = 0;
+    if (controller)
+    {
+        // Get displays
+        int display_count = 0;
+        controller->GetDisplays(&display_count, nullptr);
+        std::vector<unsigned long> display_ids(display_count);
+        controller->GetDisplays(&display_count, display_ids.data());
+
+        if (!display_ids.empty())
+        {
+            unsigned long first_display_id = display_ids.front();
+            if (controller->InstanceOffscreenWindowGL(&wnd, first_display_id))
+            {
+                // Window handle created successfully
+            }
+            else
+            {
+                wnd = 0;
+            }
+        }
+    }
+
+    BridgeData bridgeData = BridgeData::Create(*controller, wnd);
+
+if (bridgeData.wnd != 0)
+{
+    // Update window size and title using bridgeData
+    bridgeData.window_width  = bridgeData.output_width;
+    bridgeData.window_height = bridgeData.output_height;
+    glfwSetWindowSize(window, bridgeData.window_width, bridgeData.window_height);
+
+    // Set window title using display info
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    auto it = std::find_if(bridgeData.display_infos.begin(), bridgeData.display_infos.end(),
+                        [&bridgeData](const DisplayInfo& info) {
+                            return info.display_id == bridgeData.display_index;
+                        });
+
+    if (it != bridgeData.display_infos.end())
+    {
+        const DisplayInfo& displayInfo = *it;
+        std::string window_title = "Bridge InProc SDK Native Interactive Sample -- " +
+                                converter.to_bytes(displayInfo.name) +
+                                " : " + converter.to_bytes(displayInfo.serial);
+        glfwSetWindowTitle(window, window_title.c_str());
+    }
+
+    // Move the window to the correct monitor based on bridgeData.window_position
+    int monitorCount;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+    GLFWmonitor* targetMonitor = nullptr;
+
+    // Find the monitor that matches the position in bridgeData.window_position
+    for (int i = 0; i < monitorCount; i++)
+    {
+        int xpos = 0, ypos = 0;
+        glfwGetMonitorPos(monitors[i], &xpos, &ypos);
+
+        if (xpos == bridgeData.window_position.x && ypos == bridgeData.window_position.y)
+        {
+            targetMonitor = monitors[i];
+            break;
+        }
+    }
+
+    if (targetMonitor)
+    {
+        // Get the video mode of the target monitor
+        const GLFWvidmode* mode = glfwGetVideoMode(targetMonitor);
+
+        // Set the window to fullscreen on the target monitor
+        glfwSetWindowMonitor(window, targetMonitor, 0, 0, bridgeData.window_width, bridgeData.window_height, GLFW_DONT_CARE);
+    }
+    else
+    {
+        // If no matching monitor is found, position the window at the specified coordinates
+        glfwSetWindowPos(window, bridgeData.window_position.x, bridgeData.window_position.y);
+    }
+
+
+        // Initialize OpenGL textures and framebuffers using bridgeData's quilt dimensions
+        glGenTextures(1, &render_texture);
+        glBindTexture(GL_TEXTURE_2D, render_texture);
+
+        // Set texture parameters
+        ogl::glTexImage2D(GL_TEXTURE_2D, 
+                        0, 
+                        GL_RGBA, 
+                        bridgeData.quilt_width, 
+                        bridgeData.quilt_height, 
+                        0, 
+                        GL_RGBA,
+                        GL_UNSIGNED_BYTE, 
+                        nullptr); 
+
+        // Generate and bind the renderbuffer for depth
+        ogl::glGenRenderbuffers(1, &depth_buffer);
+        ogl::glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer); 
+
+        // Create a depth buffer
+        ogl::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32, bridgeData.quilt_width, bridgeData.quilt_height);
+
+        // Generate the framebuffer
+        ogl::glGenFramebuffers(1, &render_fbo);
+        ogl::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo);
+
+        // Attach the texture to the framebuffer as a color attachment
+        ogl::glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_texture, 0);
+
+        // Attach the renderbuffer as a depth attachment
+        ogl::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_buffer);
+
+        ogl::glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        ogl::glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    }
+    else
+    {
+        // Handle case when bridge is not initialized
+        bridgeData.window_width = 800;
+        bridgeData.window_height = 800;
+        glfwSetWindowSize(window, bridgeData.window_width, bridgeData.window_height);
+    }
 
     // Register mouse callback functions
     glfwSetMouseButtonCallback(window, mouse_button_callback);
@@ -945,33 +656,35 @@ int main(void)
     {
         glfwMakeContextCurrent(window);
 
-        if (g_controller)
+        if (controller && bridgeData.wnd != 0)
         {
-            // mlc: we have a window -- draw the quilt views for the hologram!
-            ogl::glBindFramebuffer(GL_FRAMEBUFFER, g_render_fbo);
+            // Draw the quilt views for the hologram
+            ogl::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo);
 
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             float tx_offset = 0.009f;
-            float tx = -(float)(g_vx * g_vy - 1) / 2.0f * tx_offset;
+            float tx = -(float)(bridgeData.vx * bridgeData.vy - 1) / 2.0f * tx_offset;
 
-            for (int y = 0; y < g_vy; y++)
+            for (int y = 0; y < bridgeData.vy; y++)
             {
-                for (int x = 0; x < g_vx; x++)
+                for (int x = 0; x < bridgeData.vx; x++)
                 {
-                    int invertedY = g_vy - 1 - y;
-                    glViewport(x * g_view_width, invertedY * g_view_height, g_view_width, g_view_height);
+                    int invertedY = bridgeData.vy - 1 - y;
+                    glViewport(x * bridgeData.view_width, invertedY * bridgeData.view_height, bridgeData.view_width, bridgeData.view_height);
 
-                    drawScene(shaderProgram, vaoCube, tx, true);
+                    drawScene(shaderProgram, vaoCube, bridgeData, tx, true);
 
                     tx += tx_offset;
                 }
             }
 
-            g_controller->DrawInteropQuiltTextureGL(g_wnd, g_render_texture, PixelFormats::RGBA, g_quilt_width, g_quilt_height, g_vx, g_vy, g_displayaspect, 1.0f);
+            controller->DrawInteropQuiltTextureGL(bridgeData.wnd, render_texture, PixelFormats::RGBA,
+                                                bridgeData.quilt_width, bridgeData.quilt_height,
+                                                bridgeData.vx, bridgeData.vy, bridgeData.displayaspect, 1.0f);
         }
-        
+
         glfwMakeContextCurrent(window);
 
         // mlc: draw to primary head
@@ -990,21 +703,21 @@ int main(void)
 
         setMatrixUniforms(shaderProgram, "model", modelMatrix);
 
-        if (g_controller)
+        if (controller && bridgeData.wnd != 0)
         {
-            // mlc: draw hologram!
+            // Draw hologram
             unsigned long long hologram_texture = 0;
             unsigned long      hologram_width   = 0;
             unsigned long      hologram_height  = 0;
             PixelFormats       hologram_format = PixelFormats::NoFormat;
 
-            g_controller->GetOffscreenWindowTextureGL(g_wnd, &hologram_texture, &hologram_format, &hologram_width, &hologram_height);
-            drawQuad(shaderProgramTex, vaoQuad, hologram_texture);
+            controller->GetOffscreenWindowTextureGL(bridgeData.wnd, &hologram_texture, &hologram_format, &hologram_width, &hologram_height);
+            drawQuad(shaderProgramTex, vaoQuad, (GLuint)hologram_texture);
         }
         else
         {
-            // mlc: no device connected -- draw single view
-            drawScene(shaderProgram, vaoCube);
+            // No device connected -- draw single view
+            drawScene(shaderProgram, vaoCube, bridgeData);
         }
         
         glfwSwapBuffers(window);
@@ -1012,20 +725,20 @@ int main(void)
         glfwPollEvents();
     }
 
-    if (g_controller)
+    if (controller)
     {
-        g_controller->Uninitialize();
+        controller->Uninitialize();
     }
 
     ogl::glDeleteVertexArrays(1, &vaoCube);
     ogl::glDeleteBuffers(1, &vboCube);
     ogl::glDeleteBuffers(1, &eboCube);
     ogl::glDeleteVertexArrays(1, &vaoQuad);
-    ogl::glDeleteBuffers(1, &vaoQuad);
-    ogl::glDeleteBuffers(1, &vaoQuad);
-    glDeleteTextures(1, &g_render_texture);
-    ogl::glDeleteRenderbuffers(1, &g_depth_buffer);
-    ogl::glDeleteFramebuffers(1, &g_render_fbo);
+    ogl::glDeleteBuffers(1, &vboQuad);
+    ogl::glDeleteBuffers(1, &eboQuad);
+    glDeleteTextures(1, &render_texture);
+    ogl::glDeleteRenderbuffers(1, &depth_buffer);
+    ogl::glDeleteFramebuffers(1, &render_fbo);
     ogl::glDeleteProgram(shaderProgram);
     ogl::glDeleteProgram(shaderProgramTex);
 

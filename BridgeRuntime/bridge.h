@@ -44,6 +44,20 @@ const uint32_t OFFSCREEN_WINDOW           = -2;
 
 typedef unsigned long WINDOW_HANDLE;
 
+struct Dim
+{
+    unsigned long width  = 0;
+    unsigned long height = 0;
+};
+
+struct BridgeVersionAndPostfix
+{
+    unsigned long major = 0;
+    unsigned long minor = 0;
+    unsigned long build = 0; 
+    std::wstring       postfix;
+};
+
 struct CalibrationSubpixelCell
 {
 	float ROffsetX;
@@ -52,6 +66,37 @@ struct CalibrationSubpixelCell
 	float GOffsetY;
 	float BOffsetX;
 	float BOffsetY;
+};
+
+struct LKGCalibration
+{
+    float center = 0;
+    float pitch = 0;
+    float slope = 0;
+    int width = 0;
+    int height = 0;
+    float dpi = 0;
+    float flip_x = 0;
+    int invView = 0;
+    float viewcone = 0.0f;
+    float fringe = 0.0f;
+    int cell_pattern_mode = 0;
+    std::vector<CalibrationSubpixelCell> cells;
+};
+
+struct DefaultQuitSettings
+{
+    float aspect        = 0.0f;
+    int   quilt_width   = 0;
+    int   quilt_height  = 0;
+    int   quilt_columns = 0;
+    int   quilt_rows    = 0;
+};
+
+struct WindowPos
+{
+    long x = 0;
+    long y = 0;
 };
 
 #ifdef _WIN32
@@ -1518,3 +1563,222 @@ std::wstring BridgeInstallLocation(const std::wstring& requestedVersion)
 #ifdef _WIN32
 #pragma warning(default : 4244)
 #endif
+
+struct DisplayInfo {
+    unsigned long       display_id;
+    std::wstring        serial;
+    std::wstring        name;
+    Dim                 dimensions;
+    int                 hw_enum;
+    LKGCalibration      calibration;
+    int                 viewinv;
+    int                 ri;
+    int                 bi;
+    float               tilt;
+    float               aspect;
+    float               fringe;
+    float               subp;
+    float               viewcone;
+    float               center;
+    float               pitch;
+    DefaultQuitSettings default_quilt_settings;
+    WindowPos           window_position;
+};
+
+class BridgeData {
+public:
+    // Bridge-related data
+    WINDOW_HANDLE   wnd           = 0;
+    unsigned long   display_index = 0;
+    float           viewcone      = 0.0f;
+    int             device_type   = 0;
+    float           aspect        = 0.0f;
+    int             quilt_width   = 0;
+    int             quilt_height  = 0;
+    int             vx            = 0;
+    int             vy            = 0;
+    unsigned long   output_width  = 800;
+    unsigned long   output_height = 600;
+    int             window_width  = 800;
+    int             window_height = 600;
+    int             view_width    = 0;
+    int             view_height   = 0;
+    int             invview       = 0;
+    int             ri            = 0;
+    int             bi            = 0;
+    float           tilt          = 0.0f;
+    float           displayaspect = 0.0f;
+    float           fringe        = 0.0f;
+    float           subp          = 0.0f;
+    float           pitch         = 0.0f;
+    float           center        = 0.0f;
+    WindowPos       window_position;
+    std::vector<DisplayInfo> display_infos;
+
+    // Static builder function
+    static BridgeData Create(Controller& controller, WINDOW_HANDLE wnd);
+
+private:
+    // Private constructor to enforce the use of the builder function
+    BridgeData() = default;
+
+  // Helper methods
+    void populateDisplayInfos(Controller& controller);
+    void populateSingleDisplayInfo(Controller& controller, unsigned long display_id, DisplayInfo& info);
+    void populateWindowValues(Controller& controller, WINDOW_HANDLE wnd);
+};
+
+inline BridgeData BridgeData::Create(Controller& controller, WINDOW_HANDLE wnd)
+{
+    BridgeData bridgeData;
+    bridgeData.wnd = wnd;
+
+    // Populate display infos for all connected displays
+    bridgeData.populateDisplayInfos(controller);
+
+    if (bridgeData.wnd != 0)
+    {
+        // The window handle is valid; proceed to populate data
+        controller.GetDisplayForWindow(bridgeData.wnd, &bridgeData.display_index);
+        bridgeData.populateWindowValues(controller, bridgeData.wnd);
+
+        // Compute view_width and view_height
+        bridgeData.view_width  = int(float(bridgeData.quilt_width) / float(bridgeData.vx));
+        bridgeData.view_height = int(float(bridgeData.quilt_height) / float(bridgeData.vy));
+    }
+    else
+    {
+        // Handle the case where the window handle is invalid
+        // You can set default values or handle it as needed
+    }
+
+    return bridgeData;
+}
+
+inline void BridgeData::populateDisplayInfos(Controller& controller)
+{
+    int display_count = 0;
+    controller.GetDisplays(&display_count, nullptr);
+
+    if (display_count > 0)
+    {
+        std::vector<unsigned long> display_ids(display_count);
+        controller.GetDisplays(&display_count, display_ids.data());
+
+        // Clear the display_infos vector in case it's not empty
+        display_infos.clear();
+
+        for (auto display_id : display_ids)
+        {
+            DisplayInfo info;
+            populateSingleDisplayInfo(controller, display_id, info);
+            display_infos.push_back(info);
+        }
+    }
+}
+
+// Helper method to populate a single DisplayInfo
+inline void BridgeData::populateSingleDisplayInfo(Controller& controller, unsigned long display_id, DisplayInfo& info)
+{
+    info.display_id = display_id;
+
+    // Get serial
+    int serial_count = 0;
+    controller.GetDeviceSerialForDisplay(display_id, &serial_count, nullptr);
+    if (serial_count > 0)
+    {
+        info.serial.resize(serial_count);
+        controller.GetDeviceSerialForDisplay(display_id, &serial_count, info.serial.data());
+    }
+
+    // Get name
+    int name_count = 0;
+    controller.GetDeviceNameForDisplay(display_id, &name_count, nullptr);
+    if (name_count > 0)
+    {
+        info.name.resize(name_count);
+        controller.GetDeviceNameForDisplay(display_id, &name_count, info.name.data());
+    }
+
+    // Get dimensions
+    controller.GetDimensionsForDisplay(display_id, &info.dimensions.width, &info.dimensions.height);
+
+    // Get hardware enum
+    controller.GetDeviceTypeForDisplay(display_id, &info.hw_enum);
+
+    // Get calibration
+    int number_of_cells = 0;
+    controller.GetCalibrationForDisplay(display_id,
+                                        &info.calibration.center,
+                                        &info.calibration.pitch,
+                                        &info.calibration.slope,
+                                        &info.calibration.width,
+                                        &info.calibration.height,
+                                        &info.calibration.dpi,
+                                        &info.calibration.flip_x,
+                                        &info.calibration.invView,
+                                        &info.calibration.viewcone,
+                                        &info.calibration.fringe,
+                                        &info.calibration.cell_pattern_mode,
+                                        &number_of_cells,
+                                        nullptr);
+    if (number_of_cells > 0)
+    {
+        info.calibration.cells.resize(number_of_cells);
+        controller.GetCalibrationForDisplay(display_id,
+                                            &info.calibration.center,
+                                            &info.calibration.pitch,
+                                            &info.calibration.slope,
+                                            &info.calibration.width,
+                                            &info.calibration.height,
+                                            &info.calibration.dpi,
+                                            &info.calibration.flip_x,
+                                            &info.calibration.invView,
+                                            &info.calibration.viewcone,
+                                            &info.calibration.fringe,
+                                            &info.calibration.cell_pattern_mode,
+                                            &number_of_cells,
+                                            info.calibration.cells.data());
+    }
+
+    // Get other parameters
+    controller.GetInvViewForDisplay(display_id, &info.viewinv);
+    controller.GetRiForDisplay(display_id, &info.ri);
+    controller.GetBiForDisplay(display_id, &info.bi);
+    controller.GetTiltForDisplay(display_id, &info.tilt);
+    controller.GetDisplayAspectForDisplay(display_id, &info.aspect);
+    controller.GetFringeForDisplay(display_id, &info.fringe);
+    controller.GetSubpForDisplay(display_id, &info.subp);
+    controller.GetViewConeForDisplay(display_id, &info.viewcone);
+    controller.GetCenterForDisplay(display_id, &info.center);
+    controller.GetPitchForDisplay(display_id, &info.pitch);
+
+    // Get default quilt settings
+    controller.GetDefaultQuiltSettingsForDisplay(display_id,
+                                                 &info.default_quilt_settings.aspect,
+                                                 &info.default_quilt_settings.quilt_width,
+                                                 &info.default_quilt_settings.quilt_height,
+                                                 &info.default_quilt_settings.quilt_columns,
+                                                 &info.default_quilt_settings.quilt_rows);
+
+    // Get window position
+    controller.GetWindowPositionForDisplay(display_id, &info.window_position.x, &info.window_position.y);
+}
+
+inline void BridgeData::populateWindowValues(Controller& controller, WINDOW_HANDLE wnd)
+{
+    controller.GetDeviceType(wnd, &device_type);
+    controller.GetDefaultQuiltSettings(wnd, &aspect, &quilt_width, &quilt_height, &vx, &vy);
+    controller.GetWindowDimensions(wnd, &output_width, &output_height);
+    controller.GetViewCone(wnd, &viewcone);
+    controller.GetInvView(wnd, &invview);
+    controller.GetRi(wnd, &ri);
+    controller.GetBi(wnd, &bi);
+    controller.GetTilt(wnd, &tilt);
+    controller.GetDisplayAspect(wnd, &displayaspect);
+    controller.GetFringe(wnd, &fringe);
+    controller.GetSubp(wnd, &subp);
+    controller.GetPitch(wnd, &pitch);
+    controller.GetCenter(wnd, &center);
+    controller.GetWindowPosition(wnd, &window_position.x, &window_position.y);
+}

@@ -142,8 +142,8 @@ int main(void)
         }
 
         // set 2d window to be half the size of the looking glass display we are outputting to 
-        float window_width  = bridgeData.output_width / 2;
-        float window_height = bridgeData.output_height / 2;
+        int window_width  = (int)bridgeData.output_width / 2;
+        int window_height = (int)bridgeData.output_height / 2;
 
         glfwSetWindowSize(window, window_width, window_height);
     }

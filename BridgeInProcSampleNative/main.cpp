@@ -4,6 +4,7 @@
 #include <GL/glext.h>
 #include <string.h>
 #include <bridge.h>
+#include <LKGCamera.h>
 #include <memory>
 #include <codecvt>
 #include <locale>
@@ -192,109 +193,27 @@ void setMatrixUniforms(GLuint shaderProgram, const char* name, const GLfloat* ma
     ogl::glUniformMatrix4fv(location, 1, GL_FALSE, matrix);
 }
 
-void calculateModelMatrix(GLfloat* matrix, GLfloat angleX, GLfloat angleY) 
-{
-    GLfloat cosX = cos(angleX);
-    GLfloat sinX = sin(angleX);
-    GLfloat cosY = cos(angleY);
-    GLfloat sinY = sin(angleY);
-
-    // Rotation around X-axis
-    GLfloat rotationX[16] = 
-    {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, cosX, -sinX, 0.0f,
-        0.0f, sinX, cosX, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
-
-    // Rotation around Y-axis
-    GLfloat rotationY[16] = 
-    {
-        cosY, 0.0f, sinY, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        -sinY, 0.0f, cosY, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
-
-    // Translation matrix
-    GLfloat translation[16] = 
-    {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, -3.0f, 1.0f
-    };
-
-    // Temporary matrix for combined rotation
-    GLfloat temp[16];
-
-    // Multiply rotationY by rotationX
-    for (int i = 0; i < 4; ++i) 
-    {
-        for (int j = 0; j < 4; ++j) 
-        {
-            temp[i * 4 + j] = rotationY[i * 4 + 0] * rotationX[0 * 4 + j] +
-                              rotationY[i * 4 + 1] * rotationX[1 * 4 + j] +
-                              rotationY[i * 4 + 2] * rotationX[2 * 4 + j] +
-                              rotationY[i * 4 + 3] * rotationX[3 * 4 + j];
-        }
-    }
-
-    // Multiply temp by translation
-    for (int i = 0; i < 4; ++i) 
-    {
-        for (int j = 0; j < 4; ++j) 
-        {
-            matrix[i * 4 + j] = temp[i * 4 + 0] * translation[0 * 4 + j] +
-                                temp[i * 4 + 1] * translation[1 * 4 + j] +
-                                temp[i * 4 + 2] * translation[2 * 4 + j] +
-                                temp[i * 4 + 3] * translation[3 * 4 + j];
-        }
-    }
-}
-
-void calculateViewMatrix(GLfloat* matrix) 
-{
-    matrix[0] = 1.0f; matrix[1] = 0.0f; matrix[2] = 0.0f; matrix[3] = 0.0f;
-    matrix[4] = 0.0f; matrix[5] = 1.0f; matrix[6] = 0.0f; matrix[7] = 0.0f;
-    matrix[8] = 0.0f; matrix[9] = 0.0f; matrix[10] = 1.0f; matrix[11] = -5.0f;
-    matrix[12] = 0.0f; matrix[13] = 0.0f; matrix[14] = 0.0f; matrix[15] = 1.0f;
-}
-
-void calculateProjectionMatrix(GLfloat* matrix, float aspectRatio, float fov, float nearPlane, float farPlane) 
-{
-    float top = tan(fov / 2) * nearPlane;
-    float right = top * aspectRatio;
-    memset(matrix, 0, 16 * sizeof(float));
-    matrix[0] = nearPlane / right;
-    matrix[5] = nearPlane / top;
-    matrix[10] = -(farPlane + nearPlane) / (farPlane - nearPlane);
-    matrix[11] = -1.0f;
-    matrix[14] = -(2 * farPlane * nearPlane) / (farPlane - nearPlane);
-}
-
-void drawScene(GLuint shaderProgram, GLuint vao, BridgeData& bridgeData, float tx = 0.0f, bool invert = false)
+void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float tx = 0.0f, bool invert = false, float depthiness = 0.09f, float focus = 0.0f)
 {
     ogl::glBindVertexArray(vao);
     ogl::glUseProgram(shaderProgram);
 
-    glm::vec3 eye(0, 0, 5); 
-    glm::vec3 center(0, 0, 0); 
-    glm::vec3 up(0, 1, 0); 
+    // Compute view and projection matrices using LKGCamera
+    float viewMatrix[16];
+    float projectionMatrix[16];
+    camera.computeViewProjectionMatrices(tx, invert, depthiness, focus, viewMatrix, projectionMatrix);
 
-    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(-tx, 0, 0)) * glm::lookAt(eye, center, up);
+    // Compute the model matrix (e.g., rotating cube)
+    float timeValue = (float)glfwGetTime();
+    float modelMatrix[16];
+    camera.getModelMatrix(modelMatrix, timeValue, -timeValue);
 
-    if (invert) 
-    {
-        view = glm::scale(view, glm::vec3(1, -1, 1));
-    }
+    // Set uniforms
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix);
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, viewMatrix);
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projectionMatrix);
 
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), bridgeData.displayaspect, 0.1f, 100.0f);
-
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-
+    // Draw the object
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
 }
 
@@ -377,6 +296,16 @@ int main(void)
 
         glfwSetWindowSize(window, bridgeData.window_width, bridgeData.window_height);
     }
+
+    LKGCamera camera = LKGCamera();
+
+    camera.position[0] = 0.0f; camera.position[1] = 0.0f; camera.position[2] = 5.0f;
+    camera.target[0] = 0.0f;   camera.target[1] = 0.0f;   camera.target[2] = 0.0f;
+    camera.up[0] = 0.0f;       camera.up[1] = 1.0f;       camera.up[2] = 0.0f;
+    camera.fov = 45.0f;
+    camera.aspectRatio = bridgeData.displayaspect;
+    camera.nearPlane = 0.1f;
+    camera.farPlane = 100.0f;
 
     // Initialize OpenGL textures and framebuffers
     GLuint render_texture = 0;
@@ -496,6 +425,10 @@ int main(void)
     glPolygonMode(GL_FRONT, GL_FILL);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
+    int totalViews = bridgeData.vx * bridgeData.vy;
+    float depthiness = 0.9f;  // Adjust as needed
+    float focus = 0.0f;        // Adjust as needed
+
   // Rendering loop
     while (!glfwWindowShouldClose(window))
     {
@@ -507,14 +440,8 @@ int main(void)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        float timeValue = (float)glfwGetTime();
-        GLfloat modelMatrix[16];
-        calculateModelMatrix(modelMatrix, timeValue, -timeValue);
-
-        setMatrixUniforms(shaderProgram, "model", modelMatrix);
-
-        drawScene(shaderProgram, vao, bridgeData);
-
+        drawScene(shaderProgram, vao, camera);
+        
         glfwSwapBuffers(window);
 
         if (bridgeData.wnd)
@@ -524,9 +451,6 @@ int main(void)
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            float tx_offset = 0.009f;
-            float tx = -(float)(bridgeData.vx * bridgeData.vy - 1) / 2.0f * tx_offset;
-
             for (int y = 0; y < bridgeData.vy; y++)
             {
                 for (int x = 0; x < bridgeData.vx; x++)
@@ -534,9 +458,10 @@ int main(void)
                     int invertedY = bridgeData.vy - 1 - y;
                     glViewport(x * bridgeData.view_width, invertedY * bridgeData.view_height, bridgeData.view_width, bridgeData.view_height);
 
-                    drawScene(shaderProgram, vao, bridgeData, tx, true);
+                    int viewIndex = y * bridgeData.vx + x;
+                    float tx = (float)viewIndex / (float)(totalViews - 1);
 
-                    tx += tx_offset;
+                    drawScene(shaderProgram, vao, camera, tx, true, depthiness, focus);
                 }
             }
 

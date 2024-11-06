@@ -4,6 +4,7 @@
 #include <GL/glext.h>
 #include <string.h>
 #include <bridge.h>
+#include <LKGCamera.h>
 #include <memory>
 #include <codecvt>
 #include <locale>
@@ -11,7 +12,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
-#include "ogl.h"
+#include <ogl.h>
 
 #ifdef _WIN32
 #pragma optimize("", off)
@@ -20,8 +21,6 @@ extern "C" {
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
-
-using namespace std;
 
 const char* vertexShaderSource =
     "#version 330 core\n"
@@ -65,110 +64,29 @@ const char* fragmentShaderSourceTex =
     "    FragColor = texture(texture1, TexCoord);\n"
     "}\n";
 
+// Global variables for mouse control
+bool mousePressed = false;
+double lastX = 0.0, lastY = 0.0;
+float angleX = 0.0f, angleY = 0.0f;
 
-void calculateModelMatrix(GLfloat* matrix, GLfloat angleX, GLfloat angleY) 
-{
-    GLfloat cosX = cos(angleX);
-    GLfloat sinX = sin(angleX);
-    GLfloat cosY = cos(angleY);
-    GLfloat sinY = sin(angleY);
-
-    // Rotation around X-axis
-    GLfloat rotationX[16] = 
-    {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, cosX, -sinX, 0.0f,
-        0.0f, sinX, cosX, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
-
-    // Rotation around Y-axis
-    GLfloat rotationY[16] = 
-    {
-        cosY, 0.0f, sinY, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        -sinY, 0.0f, cosY, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
-
-    // Translation matrix
-    GLfloat translation[16] = 
-    {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, -3.0f, 1.0f
-    };
-
-    // Temporary matrix for combined rotation
-    GLfloat temp[16];
-
-    // Multiply rotationY by rotationX
-    for (int i = 0; i < 4; ++i) 
-    {
-        for (int j = 0; j < 4; ++j) 
-        {
-            temp[i * 4 + j] = rotationY[i * 4 + 0] * rotationX[0 * 4 + j] +
-                              rotationY[i * 4 + 1] * rotationX[1 * 4 + j] +
-                              rotationY[i * 4 + 2] * rotationX[2 * 4 + j] +
-                              rotationY[i * 4 + 3] * rotationX[3 * 4 + j];
-        }
-    }
-
-    // Multiply temp by translation
-    for (int i = 0; i < 4; ++i) 
-    {
-        for (int j = 0; j < 4; ++j) 
-        {
-            matrix[i * 4 + j] = temp[i * 4 + 0] * translation[0 * 4 + j] +
-                                temp[i * 4 + 1] * translation[1 * 4 + j] +
-                                temp[i * 4 + 2] * translation[2 * 4 + j] +
-                                temp[i * 4 + 3] * translation[3 * 4 + j];
-        }
-    }
-}
-
-void calculateViewMatrix(GLfloat* matrix) 
-{
-    matrix[0] = 1.0f; matrix[1] = 0.0f; matrix[2] = 0.0f; matrix[3] = 0.0f;
-    matrix[4] = 0.0f; matrix[5] = 1.0f; matrix[6] = 0.0f; matrix[7] = 0.0f;
-    matrix[8] = 0.0f; matrix[9] = 0.0f; matrix[10] = 1.0f; matrix[11] = -5.0f;
-    matrix[12] = 0.0f; matrix[13] = 0.0f; matrix[14] = 0.0f; matrix[15] = 1.0f;
-}
-
-void calculateProjectionMatrix(GLfloat* matrix, float aspectRatio, float fov, float nearPlane, float farPlane) 
-{
-    float top = tan(fov / 2) * nearPlane;
-    float right = top * aspectRatio;
-    memset(matrix, 0, 16 * sizeof(float));
-    matrix[0] = nearPlane / right;
-    matrix[5] = nearPlane / top;
-    matrix[10] = -(farPlane + nearPlane) / (farPlane - nearPlane);
-    matrix[11] = -1.0f;
-    matrix[14] = -(2 * farPlane * nearPlane) / (farPlane - nearPlane);
-}
-
-void drawScene(GLuint shaderProgram, GLuint vao, BridgeData& bridgeData, float tx = 0.0f, bool invert = false) 
+void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
 {
     ogl::glBindVertexArray(vao);
     ogl::glUseProgram(shaderProgram);
 
-    glm::vec3 eye(0, 0, 5); 
-    glm::vec3 center(0, 0, 0); 
-    glm::vec3 up(0, 1, 0); 
+    // Compute view and projection matrices using LKGCamera
+    Matrix4 viewMatrix;
+    Matrix4 projectionMatrix;
+    camera.computeViewProjectionMatrices(normalizedView, invert, depthiness, focus, viewMatrix, projectionMatrix);
 
-    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(-tx, 0, 0)) * glm::lookAt(eye, center, up);
+    Matrix4 modelMatrix = camera.getModelMatrix(angleX, angleY);
 
-    if (invert) 
-    {
-        view = glm::scale(view, glm::vec3(1, -1, 1));
-    }
+    // Set uniforms
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix.m);
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, viewMatrix.m);
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projectionMatrix.m);
 
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), bridgeData.displayaspect, 0.1f, 100.0f);
-
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-
+    // Draw the object
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
 }
 
@@ -189,11 +107,6 @@ void drawQuad(GLuint shaderProgram, GLuint vao, GLuint texture)
     glBindTexture(GL_TEXTURE_2D, 0);
     ogl::glUseProgram(0);
 }
-
-// Global variables for mouse control
-bool mousePressed = false;
-double lastX = 0.0, lastY = 0.0;
-float angleX = 0.0f, angleY = 0.0f;
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) 
 {
@@ -287,8 +200,10 @@ int main(void)
     }
 
     BridgeData bridgeData = BridgeData::Create(*controller, wnd);
+    bool isBridgeDataInitialized = (bridgeData.wnd != 0);
 
-    if (bridgeData.wnd != 0)
+    // Update window size and title
+    if (isBridgeDataInitialized)
     {
         glfwSetWindowSize(window, bridgeData.output_width, bridgeData.output_height);
 
@@ -434,6 +349,17 @@ int main(void)
         20, 21, 22, 22, 23, 20   // Top face
     };
 
+    Vector3 position = Vector3(0.0f, 0.0f, 5.0f);
+    Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
+    Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
+
+    float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
+    float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
+    float nearPlane = 0.001f;
+    float farPlane = 100.0f;
+
+    LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
+
     GLuint vaoCube, vboCube, eboCube;
     ogl::glGenVertexArrays(1, &vaoCube);
     ogl::glBindVertexArray(vaoCube);
@@ -496,6 +422,10 @@ int main(void)
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_DEPTH_TEST);
 
+    int totalViews = bridgeData.vx * bridgeData.vy;
+    float depthiness = 1.0f;
+    float focus = 0.0f;
+
     while (!glfwWindowShouldClose(window))
     {
         glfwMakeContextCurrent(window);
@@ -508,9 +438,6 @@ int main(void)
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            float tx_offset = 0.009f;
-            float tx = -(float)(bridgeData.vx * bridgeData.vy - 1) / 2.0f * tx_offset;
-
             for (int y = 0; y < bridgeData.vy; y++)
             {
                 for (int x = 0; x < bridgeData.vx; x++)
@@ -518,9 +445,10 @@ int main(void)
                     int invertedY = bridgeData.vy - 1 - y;
                     glViewport(x * bridgeData.view_width, invertedY * bridgeData.view_height, bridgeData.view_width, bridgeData.view_height);
 
-                    drawScene(shaderProgram, vaoCube, bridgeData, tx, true);
+                    int viewIndex = y * bridgeData.vx + x;
+                    float normalizedView = static_cast<float>(viewIndex) / static_cast<float>(totalViews - 1);
 
-                    tx += tx_offset;
+                    drawScene(shaderProgram, vaoCube, camera, normalizedView, true, depthiness, focus);
                 }
             }
 
@@ -542,11 +470,6 @@ int main(void)
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        GLfloat modelMatrix[16];
-        calculateModelMatrix(modelMatrix, angleX, angleY);
-
-        setMatrixUniforms(shaderProgram, "model", modelMatrix);
-
         if (controller && bridgeData.wnd != 0)
         {
             // Draw hologram
@@ -561,7 +484,7 @@ int main(void)
         else
         {
             // No device connected -- draw single view
-            drawScene(shaderProgram, vaoCube, bridgeData);
+            drawScene(shaderProgram, vaoCube, camera);
         }
         
         glfwSwapBuffers(window);

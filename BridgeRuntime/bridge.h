@@ -1599,8 +1599,6 @@ public:
     int             vy            = 0;
     unsigned long   output_width  = 800;
     unsigned long   output_height = 600;
-    int             window_width  = 800;
-    int             window_height = 600;
     int             view_width    = 0;
     int             view_height   = 0;
     int             invview       = 0;

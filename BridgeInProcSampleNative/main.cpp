@@ -22,9 +22,6 @@ extern "C" {
 }
 #endif
 
-using namespace std;
-
-
 const char* vertexShaderSource =
     "#version 330 core\n"
     "layout (location = 0) in vec3 position;\n"
@@ -46,13 +43,7 @@ const char* fragmentShaderSource =
     "    FragColor = vec4(vertexColor, 1.0);\n"
     "}";
 
-void setMatrixUniforms(GLuint shaderProgram, const char* name, const GLfloat* matrix) 
-{
-    GLint location = ogl::glGetUniformLocation(shaderProgram, name);
-    ogl::glUniformMatrix4fv(location, 1, GL_FALSE, matrix);
-}
-
-void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float tx = 0.0f, bool invert = false, float depthiness = 0.09f, float focus = 0.0f)
+void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
 {
     ogl::glBindVertexArray(vao);
     ogl::glUseProgram(shaderProgram);
@@ -60,7 +51,7 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float tx = 0
     // Compute view and projection matrices using LKGCamera
     Matrix4 viewMatrix;
     Matrix4 projectionMatrix;
-    camera.computeViewProjectionMatrices(tx, invert, depthiness, focus, viewMatrix, projectionMatrix);
+    camera.computeViewProjectionMatrices(normalizedView, invert, depthiness, focus, viewMatrix, projectionMatrix);
 
     // Compute the model matrix (e.g., rotating cube)
     float timeValue = (float)glfwGetTime();
@@ -134,9 +125,10 @@ int main(void)
 
     // Create BridgeData
     BridgeData bridgeData = BridgeData::Create(*controller, wnd);
+    bool isBridgeDataInitialized = (bridgeData.wnd != 0);
 
     // Update window size and title
-    if (bridgeData.wnd != 0)
+    if (isBridgeDataInitialized)
     {
         std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
         if (!bridgeData.display_infos.empty())
@@ -149,18 +141,19 @@ int main(void)
             glfwSetWindowTitle(window, window_title.c_str());
         }
 
-        bridgeData.window_width  = bridgeData.output_width / 2;
-        bridgeData.window_height = bridgeData.output_height / 2;
+        // set 2d window to be half the size of the looking glass display we are outputting to 
+        float window_width  = bridgeData.output_width / 2;
+        float window_height = bridgeData.output_height / 2;
 
-        glfwSetWindowSize(window, bridgeData.window_width, bridgeData.window_height);
+        glfwSetWindowSize(window, window_width, window_height);
     }
 
     Vector3 position = Vector3(0.0f, 0.0f, 5.0f);
     Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
     Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
 
-    float fov = bridgeData.viewcone;
-    float aspect = bridgeData.displayaspect;
+    float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
+    float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
     float nearPlane = 0.001f;
     float farPlane = 100.0f;
 
@@ -171,20 +164,20 @@ int main(void)
     GLuint render_fbo = 0;
     GLuint depth_buffer = 0;
 
-    if (bridgeData.wnd != 0)
+    if (isBridgeDataInitialized)
     {
         // Initialize OpenGL textures and framebuffers using bridgeData's quilt dimensions
         glGenTextures(1, &render_texture);
         glBindTexture(GL_TEXTURE_2D, render_texture);
         ogl::glTexImage2D(GL_TEXTURE_2D, 
-                          0, 
-                          GL_RGBA, 
-                          bridgeData.quilt_width, 
-                          bridgeData.quilt_height, 
-                          0, 
-                          GL_RGBA,
-                          GL_UNSIGNED_BYTE, 
-                          nullptr); 
+                        0, 
+                        GL_RGBA, 
+                        bridgeData.quilt_width, 
+                        bridgeData.quilt_height, 
+                        0, 
+                        GL_RGBA,
+                        GL_UNSIGNED_BYTE, 
+                        nullptr); 
 
         // Generate and bind the renderbuffer for depth
         ogl::glGenRenderbuffers(1, &depth_buffer);
@@ -285,8 +278,8 @@ int main(void)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     int totalViews = bridgeData.vx * bridgeData.vy;
-    float depthiness = 0.9f;  // Adjust as needed
-    float focus = 0.1f;        // Adjust as needed
+    float depthiness = 1.0f;
+    float focus = 0.0f;
 
     // Rendering loop
     while (!glfwWindowShouldClose(window))
@@ -303,7 +296,7 @@ int main(void)
         
         glfwSwapBuffers(window);
 
-        if (bridgeData.wnd)
+        if (isBridgeDataInitialized)
         {
             // Draw the quilt views for the hologram
             ogl::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo);
@@ -318,15 +311,15 @@ int main(void)
                     glViewport(x * bridgeData.view_width, invertedY * bridgeData.view_height, bridgeData.view_width, bridgeData.view_height);
 
                     int viewIndex = y * bridgeData.vx + x;
-                    float tx = (float)viewIndex / (float)(totalViews - 1);
+                    float normalizedView = static_cast<float>(viewIndex) / static_cast<float>(totalViews - 1);
 
-                    drawScene(shaderProgram, vao, camera, tx, true, depthiness, focus);
+                    drawScene(shaderProgram, vao, camera, normalizedView, true, depthiness, focus);
                 }
             }
 
             controller->DrawInteropQuiltTextureGL(bridgeData.wnd, render_texture, PixelFormats::RGBA,
-                                                  bridgeData.quilt_width, bridgeData.quilt_height,
-                                                  bridgeData.vx, bridgeData.vy, bridgeData.displayaspect, 1.0f);
+                                                bridgeData.quilt_width, bridgeData.quilt_height,
+                                                bridgeData.vx, bridgeData.vy, bridgeData.displayaspect, 1.0f);
         }
 
         glfwPollEvents();

@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
+#include "ogl.h"
 
 #ifdef _WIN32
 #pragma optimize("", off)
@@ -21,154 +22,6 @@ extern "C" {
 #endif
 
 using namespace std;
-
-typedef void (*PFNGLTEXIMAGE2DPROC)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * pixels);
-
-#ifdef __APPLE__
-typedef void (*PFNGLGENBUFFERSPROC)(GLsizei, GLuint*);
-typedef void (*PFNGLBINDBUFFERPROC)(GLenum, GLuint);
-typedef void (*PFNGLBUFFERDATAPROC)(GLenum, GLsizeiptr, const void*, GLenum);
-typedef void (*PFNGLVERTEXATTRIBPOINTERPROC)(GLuint, GLint, GLenum, GLboolean, GLsizei, const void*);
-typedef void (*PFNGLENABLEVERTEXATTRIBARRAYPROC)(GLuint);
-typedef GLuint (*PFNGLCREATESHADERPROC)(GLenum);
-typedef void (*PFNGLSHADERSOURCEPROC)(GLuint, GLsizei, const GLchar* const*, const GLint*);
-typedef void (*PFNGLCOMPILESHADERPROC)(GLuint);
-typedef GLuint (*PFNGLCREATEPROGRAMPROC)(void);
-typedef void (*PFNGLATTACHSHADERPROC)(GLuint, GLuint);
-typedef void (*PFNGLLINKPROGRAMPROC)(GLuint);
-typedef void (*PFNGLUSEPROGRAMPROC)(GLuint);
-typedef void (*PFNGLGETSHADERIVPROC)(GLuint, GLenum, GLint*);
-typedef void (*PFNGLGETPROGRAMIVPROC)(GLuint, GLenum, GLint*);
-typedef void (*PFNGLGETSHADERINFOLOGPROC)(GLuint, GLsizei, GLsizei*, GLchar*);
-typedef void (*PFNGLGETPROGRAMINFOLOGPROC)(GLuint, GLsizei, GLsizei*, GLchar*);
-typedef void (*PFNGLDELETESHADERPROC)(GLuint);
-typedef GLint (*PFNGLGETUNIFORMLOCATIONPROC)(GLuint, const GLchar*);
-typedef void (*PFNGLUNIFORMMATRIX4FVPROC)(GLint, GLsizei, GLboolean, const GLfloat*);
-typedef void (*PFNGLDELETEBUFFERSPROC)(GLsizei n, const GLuint *buffers);
-typedef void (*PFNGLDELETEPROGRAMPROC)(GLuint program);
-typedef void (*PFNGLACTIVETEXTUREPROC)(GLenum texture);
-typedef void (*PFNGLUNIFORM1IPROC)(GLint location, GLint v0);
-#endif
-
-namespace ogl 
-{
-    PFNGLGENBUFFERSPROC              glGenBuffers = nullptr;
-    PFNGLBINDBUFFERPROC              glBindBuffer = nullptr;
-    PFNGLBUFFERDATAPROC              glBufferData = nullptr;
-    PFNGLGENVERTEXARRAYSPROC         glGenVertexArrays = nullptr;
-    PFNGLBINDVERTEXARRAYPROC         glBindVertexArray = nullptr;
-    PFNGLVERTEXATTRIBPOINTERPROC     glVertexAttribPointer = nullptr;
-    PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = nullptr;
-    PFNGLCREATESHADERPROC            glCreateShader = nullptr;
-    PFNGLSHADERSOURCEPROC            glShaderSource = nullptr;
-    PFNGLCOMPILESHADERPROC           glCompileShader = nullptr;
-    PFNGLCREATEPROGRAMPROC           glCreateProgram = nullptr;
-    PFNGLATTACHSHADERPROC            glAttachShader = nullptr;
-    PFNGLLINKPROGRAMPROC             glLinkProgram = nullptr;
-    PFNGLUSEPROGRAMPROC              glUseProgram = nullptr;
-    PFNGLGETSHADERIVPROC             glGetShaderiv = nullptr;
-    PFNGLGETPROGRAMIVPROC            glGetProgramiv = nullptr;
-    PFNGLGETSHADERINFOLOGPROC        glGetShaderInfoLog = nullptr;
-    PFNGLGETPROGRAMINFOLOGPROC       glGetProgramInfoLog = nullptr;
-    PFNGLDELETESHADERPROC            glDeleteShader = nullptr;
-    PFNGLGETUNIFORMLOCATIONPROC      glGetUniformLocation = nullptr;
-    PFNGLUNIFORMMATRIX4FVPROC        glUniformMatrix4fv = nullptr;
-    PFNGLGENRENDERBUFFERSPROC        glGenRenderbuffers = nullptr;
-    PFNGLBINDRENDERBUFFERPROC        glBindRenderbuffer = nullptr;
-    PFNGLRENDERBUFFERSTORAGEPROC     glRenderbufferStorage = nullptr;
-    PFNGLGENFRAMEBUFFERSPROC         glGenFramebuffers = nullptr;
-    PFNGLBINDFRAMEBUFFERPROC         glBindFramebuffer = nullptr;
-    PFNGLFRAMEBUFFERTEXTURE2DPROC    glFramebufferTexture2D = nullptr;
-    PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer = nullptr;
-    PFNGLTEXIMAGE2DPROC              glTexImage2D = nullptr;
-    PFNGLDELETEFRAMEBUFFERSPROC      glDeleteFramebuffers = nullptr;
-    PFNGLDELETERENDERBUFFERSPROC     glDeleteRenderbuffers = nullptr;
-    PFNGLDELETEBUFFERSPROC           glDeleteBuffers = nullptr;
-    PFNGLDELETEVERTEXARRAYSPROC      glDeleteVertexArrays = nullptr;
-    PFNGLDELETEPROGRAMPROC           glDeleteProgram = nullptr;
-    PFNGLACTIVETEXTUREPROC           glActiveTexture = nullptr;
-    PFNGLUNIFORM1IPROC               glUniform1i = nullptr;
-
-    void loadOpenGLFunctions() 
-    {
-        glGenBuffers = (PFNGLGENBUFFERSPROC)glfwGetProcAddress("glGenBuffers");
-        glBindBuffer = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
-        glBufferData = (PFNGLBUFFERDATAPROC)glfwGetProcAddress("glBufferData");
-        glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC)glfwGetProcAddress("glGenVertexArrays");
-        glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC)glfwGetProcAddress("glBindVertexArray");
-        glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)glfwGetProcAddress("glVertexAttribPointer");
-        glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)glfwGetProcAddress("glEnableVertexAttribArray");
-        glCreateShader = (PFNGLCREATESHADERPROC)glfwGetProcAddress("glCreateShader");
-        glShaderSource = (PFNGLSHADERSOURCEPROC)glfwGetProcAddress("glShaderSource");
-        glCompileShader = (PFNGLCOMPILESHADERPROC)glfwGetProcAddress("glCompileShader");
-        glCreateProgram = (PFNGLCREATEPROGRAMPROC)glfwGetProcAddress("glCreateProgram");
-        glAttachShader = (PFNGLATTACHSHADERPROC)glfwGetProcAddress("glAttachShader");
-        glLinkProgram = (PFNGLLINKPROGRAMPROC)glfwGetProcAddress("glLinkProgram");
-        glUseProgram = (PFNGLUSEPROGRAMPROC)glfwGetProcAddress("glUseProgram");
-        glGetShaderiv = (PFNGLGETSHADERIVPROC)glfwGetProcAddress("glGetShaderiv");
-        glGetProgramiv = (PFNGLGETPROGRAMIVPROC)glfwGetProcAddress("glGetProgramiv");
-        glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC)glfwGetProcAddress("glGetShaderInfoLog");
-        glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)glfwGetProcAddress("glGetProgramInfoLog");
-        glDeleteShader = (PFNGLDELETESHADERPROC)glfwGetProcAddress("glDeleteShader");
-        glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)glfwGetProcAddress("glGetUniformLocation");
-        glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)glfwGetProcAddress("glUniformMatrix4fv");
-        glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC)glfwGetProcAddress("glGenRenderbuffers");
-        glBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC)glfwGetProcAddress("glBindRenderbuffer");
-        glRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC)glfwGetProcAddress("glRenderbufferStorage");
-        glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)glfwGetProcAddress("glGenFramebuffers");
-        glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)glfwGetProcAddress("glBindFramebuffer");
-        glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)glfwGetProcAddress("glFramebufferTexture2D");
-        glFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC)glfwGetProcAddress("glFramebufferRenderbuffer");
-        glTexImage2D = (PFNGLTEXIMAGE2DPROC)glfwGetProcAddress("glTexImage2D");
-        glDeleteFramebuffers = (PFNGLDELETEFRAMEBUFFERSPROC)glfwGetProcAddress("glDeleteFramebuffers");
-        glDeleteRenderbuffers = (PFNGLDELETERENDERBUFFERSPROC)glfwGetProcAddress("glDeleteRenderbuffers");
-        glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)glfwGetProcAddress("glDeleteBuffers");
-        glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC)glfwGetProcAddress("glDeleteVertexArrays");
-        glDeleteProgram = (PFNGLDELETEPROGRAMPROC)glfwGetProcAddress("glDeleteProgram");
-        glActiveTexture = (PFNGLACTIVETEXTUREPROC)glfwGetProcAddress("glActiveTexture");
-        glUniform1i = (PFNGLUNIFORM1IPROC)glfwGetProcAddress("glUniform1i");
-    }
-
-    GLuint loadShader(const char* source, GLenum type) 
-    {
-        GLuint shader = glCreateShader(type);
-        glShaderSource(shader, 1, &source, nullptr);
-        glCompileShader(shader);
-        GLint success;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-        if (!success) {
-            char infoLog[512];
-            glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-            std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
-        }
-        return shader;
-    }
-
-    GLuint createProgram(const char* vertexSource, const char* fragmentSource) 
-    {
-        GLuint vertexShader = loadShader(vertexSource, GL_VERTEX_SHADER);
-        GLuint fragmentShader = loadShader(fragmentSource, GL_FRAGMENT_SHADER);
-        GLuint program = glCreateProgram();
-        glAttachShader(program, vertexShader);
-        glAttachShader(program, fragmentShader);
-        glLinkProgram(program);
-        GLint success;
-        glGetProgramiv(program, GL_LINK_STATUS, &success);
-        if (!success) {
-            char infoLog[512];
-            glGetProgramInfoLog(program, 512, nullptr, infoLog);
-            std::cerr << "ERROR::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-        }
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-        return program;
-    }
-}
-
-inline const GLfloat* glmValuePtr(const glm::mat4& mat) 
-{
-    return reinterpret_cast<const GLfloat*>(&mat[0]);
-}
 
 const char* vertexShaderSource =
     "#version 330 core\n"
@@ -212,11 +65,6 @@ const char* fragmentShaderSourceTex =
     "    FragColor = texture(texture1, TexCoord);\n"
     "}\n";
 
-void setMatrixUniforms(GLuint shaderProgram, const char* name, const GLfloat* matrix) 
-{
-    GLint location = ogl::glGetUniformLocation(shaderProgram, name);
-    ogl::glUniformMatrix4fv(location, 1, GL_FALSE, matrix);
-}
 
 void calculateModelMatrix(GLfloat* matrix, GLfloat angleX, GLfloat angleY) 
 {
@@ -440,61 +288,57 @@ int main(void)
 
     BridgeData bridgeData = BridgeData::Create(*controller, wnd);
 
-if (bridgeData.wnd != 0)
-{
-    // Update window size and title using bridgeData
-    bridgeData.window_width  = bridgeData.output_width;
-    bridgeData.window_height = bridgeData.output_height;
-    glfwSetWindowSize(window, bridgeData.window_width, bridgeData.window_height);
-
-    // Set window title using display info
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    auto it = std::find_if(bridgeData.display_infos.begin(), bridgeData.display_infos.end(),
-                        [&bridgeData](const DisplayInfo& info) {
-                            return info.display_id == bridgeData.display_index;
-                        });
-
-    if (it != bridgeData.display_infos.end())
+    if (bridgeData.wnd != 0)
     {
-        const DisplayInfo& displayInfo = *it;
-        std::string window_title = "Bridge InProc SDK Native Interactive Sample -- " +
-                                converter.to_bytes(displayInfo.name) +
-                                " : " + converter.to_bytes(displayInfo.serial);
-        glfwSetWindowTitle(window, window_title.c_str());
-    }
+        glfwSetWindowSize(window, bridgeData.output_width, bridgeData.output_height);
 
-    // Move the window to the correct monitor based on bridgeData.window_position
-    int monitorCount;
-    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
-    GLFWmonitor* targetMonitor = nullptr;
+        // Set window title using display info
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+        auto it = std::find_if(bridgeData.display_infos.begin(), bridgeData.display_infos.end(),
+                            [&bridgeData](const DisplayInfo& info) {
+                                return info.display_id == bridgeData.display_index;
+                            });
 
-    // Find the monitor that matches the position in bridgeData.window_position
-    for (int i = 0; i < monitorCount; i++)
-    {
-        int xpos = 0, ypos = 0;
-        glfwGetMonitorPos(monitors[i], &xpos, &ypos);
-
-        if (xpos == bridgeData.window_position.x && ypos == bridgeData.window_position.y)
+        if (it != bridgeData.display_infos.end())
         {
-            targetMonitor = monitors[i];
-            break;
+            const DisplayInfo& displayInfo = *it;
+            std::string window_title = "Bridge InProc SDK Native Interactive Sample -- " +
+                                    converter.to_bytes(displayInfo.name) +
+                                    " : " + converter.to_bytes(displayInfo.serial);
+            glfwSetWindowTitle(window, window_title.c_str());
         }
-    }
 
-    if (targetMonitor)
-    {
-        // Get the video mode of the target monitor
-        const GLFWvidmode* mode = glfwGetVideoMode(targetMonitor);
+        // Move the window to the correct monitor based on bridgeData.window_position
+        int monitorCount;
+        GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+        GLFWmonitor* targetMonitor = nullptr;
 
-        // Set the window to fullscreen on the target monitor
-        glfwSetWindowMonitor(window, targetMonitor, 0, 0, bridgeData.window_width, bridgeData.window_height, GLFW_DONT_CARE);
-    }
-    else
-    {
-        // If no matching monitor is found, position the window at the specified coordinates
-        glfwSetWindowPos(window, bridgeData.window_position.x, bridgeData.window_position.y);
-    }
+        // Find the monitor that matches the position in bridgeData.window_position
+        for (int i = 0; i < monitorCount; i++)
+        {
+            int xpos = 0, ypos = 0;
+            glfwGetMonitorPos(monitors[i], &xpos, &ypos);
 
+            if (xpos == bridgeData.window_position.x && ypos == bridgeData.window_position.y)
+            {
+                targetMonitor = monitors[i];
+                break;
+            }
+        }
+
+        if (targetMonitor)
+        {
+            // Get the video mode of the target monitor
+            const GLFWvidmode* mode = glfwGetVideoMode(targetMonitor);
+
+            // Set the window to fullscreen on the target monitor
+            glfwSetWindowMonitor(window, targetMonitor, 0, 0, bridgeData.output_width, bridgeData.output_height, GLFW_DONT_CARE);
+        }
+        else
+        {
+            // If no matching monitor is found, position the window at the specified coordinates
+            glfwSetWindowPos(window, bridgeData.window_position.x, bridgeData.window_position.y);
+        }
 
         // Initialize OpenGL textures and framebuffers using bridgeData's quilt dimensions
         glGenTextures(1, &render_texture);
@@ -534,9 +378,9 @@ if (bridgeData.wnd != 0)
     else
     {
         // Handle case when bridge is not initialized
-        bridgeData.window_width = 800;
-        bridgeData.window_height = 800;
-        glfwSetWindowSize(window, bridgeData.window_width, bridgeData.window_height);
+        float window_width = 800;
+        float window_height = 800;
+        glfwSetWindowSize(window, window_width, window_height);
     }
 
     // Register mouse callback functions

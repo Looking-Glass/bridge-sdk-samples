@@ -12,6 +12,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
+#include <ogl.h>
 
 #ifdef _WIN32
 #pragma optimize("", off)
@@ -23,148 +24,6 @@ extern "C" {
 
 using namespace std;
 
-typedef void (*PFNGLTEXIMAGE2DPROC)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * pixels);
-
-#ifdef __APPLE__
-typedef void (*PFNGLGENBUFFERSPROC)(GLsizei, GLuint*);
-typedef void (*PFNGLBINDBUFFERPROC)(GLenum, GLuint);
-typedef void (*PFNGLBUFFERDATAPROC)(GLenum, GLsizeiptr, const void*, GLenum);
-typedef void (*PFNGLVERTEXATTRIBPOINTERPROC)(GLuint, GLint, GLenum, GLboolean, GLsizei, const void*);
-typedef void (*PFNGLENABLEVERTEXATTRIBARRAYPROC)(GLuint);
-typedef GLuint (*PFNGLCREATESHADERPROC)(GLenum);
-typedef void (*PFNGLSHADERSOURCEPROC)(GLuint, GLsizei, const GLchar* const*, const GLint*);
-typedef void (*PFNGLCOMPILESHADERPROC)(GLuint);
-typedef GLuint (*PFNGLCREATEPROGRAMPROC)(void);
-typedef void (*PFNGLATTACHSHADERPROC)(GLuint, GLuint);
-typedef void (*PFNGLLINKPROGRAMPROC)(GLuint);
-typedef void (*PFNGLUSEPROGRAMPROC)(GLuint);
-typedef void (*PFNGLGETSHADERIVPROC)(GLuint, GLenum, GLint*);
-typedef void (*PFNGLGETPROGRAMIVPROC)(GLuint, GLenum, GLint*);
-typedef void (*PFNGLGETSHADERINFOLOGPROC)(GLuint, GLsizei, GLsizei*, GLchar*);
-typedef void (*PFNGLGETPROGRAMINFOLOGPROC)(GLuint, GLsizei, GLsizei*, GLchar*);
-typedef void (*PFNGLDELETESHADERPROC)(GLuint);
-typedef GLint (*PFNGLGETUNIFORMLOCATIONPROC)(GLuint, const GLchar*);
-typedef void (*PFNGLUNIFORMMATRIX4FVPROC)(GLint, GLsizei, GLboolean, const GLfloat*);
-typedef void (*PFNGLDELETEBUFFERSPROC)(GLsizei n, const GLuint *buffers);
-typedef void (*PFNGLDELETEPROGRAMPROC)(GLuint program);
-#endif
-
-namespace ogl 
-{
-    PFNGLGENBUFFERSPROC              glGenBuffers = nullptr;
-    PFNGLBINDBUFFERPROC              glBindBuffer = nullptr;
-    PFNGLBUFFERDATAPROC              glBufferData = nullptr;
-    PFNGLGENVERTEXARRAYSPROC         glGenVertexArrays = nullptr;
-    PFNGLBINDVERTEXARRAYPROC         glBindVertexArray = nullptr;
-    PFNGLVERTEXATTRIBPOINTERPROC     glVertexAttribPointer = nullptr;
-    PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = nullptr;
-    PFNGLCREATESHADERPROC            glCreateShader = nullptr;
-    PFNGLSHADERSOURCEPROC            glShaderSource = nullptr;
-    PFNGLCOMPILESHADERPROC           glCompileShader = nullptr;
-    PFNGLCREATEPROGRAMPROC           glCreateProgram = nullptr;
-    PFNGLATTACHSHADERPROC            glAttachShader = nullptr;
-    PFNGLLINKPROGRAMPROC             glLinkProgram = nullptr;
-    PFNGLUSEPROGRAMPROC              glUseProgram = nullptr;
-    PFNGLGETSHADERIVPROC             glGetShaderiv = nullptr;
-    PFNGLGETPROGRAMIVPROC            glGetProgramiv = nullptr;
-    PFNGLGETSHADERINFOLOGPROC        glGetShaderInfoLog = nullptr;
-    PFNGLGETPROGRAMINFOLOGPROC       glGetProgramInfoLog = nullptr;
-    PFNGLDELETESHADERPROC            glDeleteShader = nullptr;
-    PFNGLGETUNIFORMLOCATIONPROC      glGetUniformLocation = nullptr;
-    PFNGLUNIFORMMATRIX4FVPROC        glUniformMatrix4fv = nullptr;
-    PFNGLGENRENDERBUFFERSPROC        glGenRenderbuffers = nullptr;
-    PFNGLBINDRENDERBUFFERPROC        glBindRenderbuffer = nullptr;
-    PFNGLRENDERBUFFERSTORAGEPROC     glRenderbufferStorage = nullptr;
-    PFNGLGENFRAMEBUFFERSPROC         glGenFramebuffers = nullptr;
-    PFNGLBINDFRAMEBUFFERPROC         glBindFramebuffer = nullptr;
-    PFNGLFRAMEBUFFERTEXTURE2DPROC    glFramebufferTexture2D = nullptr;
-    PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer = nullptr;
-    PFNGLTEXIMAGE2DPROC              glTexImage2D = nullptr;
-    PFNGLDELETEFRAMEBUFFERSPROC      glDeleteFramebuffers = nullptr;
-    PFNGLDELETERENDERBUFFERSPROC     glDeleteRenderbuffers = nullptr;
-    PFNGLDELETEBUFFERSPROC           glDeleteBuffers = nullptr;
-    PFNGLDELETEVERTEXARRAYSPROC      glDeleteVertexArrays = nullptr;
-    PFNGLDELETEPROGRAMPROC           glDeleteProgram = nullptr;
-
-    void loadOpenGLFunctions() 
-    {
-        glGenBuffers = (PFNGLGENBUFFERSPROC)glfwGetProcAddress("glGenBuffers");
-        glBindBuffer = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
-        glBufferData = (PFNGLBUFFERDATAPROC)glfwGetProcAddress("glBufferData");
-        glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC)glfwGetProcAddress("glGenVertexArrays");
-        glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC)glfwGetProcAddress("glBindVertexArray");
-        glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)glfwGetProcAddress("glVertexAttribPointer");
-        glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)glfwGetProcAddress("glEnableVertexAttribArray");
-        glCreateShader = (PFNGLCREATESHADERPROC)glfwGetProcAddress("glCreateShader");
-        glShaderSource = (PFNGLSHADERSOURCEPROC)glfwGetProcAddress("glShaderSource");
-        glCompileShader = (PFNGLCOMPILESHADERPROC)glfwGetProcAddress("glCompileShader");
-        glCreateProgram = (PFNGLCREATEPROGRAMPROC)glfwGetProcAddress("glCreateProgram");
-        glAttachShader = (PFNGLATTACHSHADERPROC)glfwGetProcAddress("glAttachShader");
-        glLinkProgram = (PFNGLLINKPROGRAMPROC)glfwGetProcAddress("glLinkProgram");
-        glUseProgram = (PFNGLUSEPROGRAMPROC)glfwGetProcAddress("glUseProgram");
-        glGetShaderiv = (PFNGLGETSHADERIVPROC)glfwGetProcAddress("glGetShaderiv");
-        glGetProgramiv = (PFNGLGETPROGRAMIVPROC)glfwGetProcAddress("glGetProgramiv");
-        glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC)glfwGetProcAddress("glGetShaderInfoLog");
-        glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)glfwGetProcAddress("glGetProgramInfoLog");
-        glDeleteShader = (PFNGLDELETESHADERPROC)glfwGetProcAddress("glDeleteShader");
-        glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)glfwGetProcAddress("glGetUniformLocation");
-        glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)glfwGetProcAddress("glUniformMatrix4fv");
-        glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC)glfwGetProcAddress("glGenRenderbuffers");
-        glBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC)glfwGetProcAddress("glBindRenderbuffer");
-        glRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC)glfwGetProcAddress("glRenderbufferStorage");
-        glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)glfwGetProcAddress("glGenFramebuffers");
-        glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)glfwGetProcAddress("glBindFramebuffer");
-        glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)glfwGetProcAddress("glFramebufferTexture2D");
-        glFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC)glfwGetProcAddress("glFramebufferRenderbuffer");
-        glTexImage2D = (PFNGLTEXIMAGE2DPROC)glfwGetProcAddress("glTexImage2D");
-        glDeleteFramebuffers = (PFNGLDELETEFRAMEBUFFERSPROC)glfwGetProcAddress("glDeleteFramebuffers");
-        glDeleteRenderbuffers = (PFNGLDELETERENDERBUFFERSPROC)glfwGetProcAddress("glDeleteRenderbuffers");
-        glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)glfwGetProcAddress("glDeleteBuffers");
-        glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC)glfwGetProcAddress("glDeleteVertexArrays");
-        glDeleteProgram = (PFNGLDELETEPROGRAMPROC)glfwGetProcAddress("glDeleteProgram");
-    }
-
-    GLuint loadShader(const char* source, GLenum type) 
-    {
-        
-        GLuint shader = glCreateShader(type);
-        glShaderSource(shader, 1, &source, nullptr);
-        glCompileShader(shader);
-        GLint success;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-        if (!success) {
-            char infoLog[512];
-            glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-            std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
-        }
-        return shader;
-    }
-
-    GLuint createProgram(const char* vertexSource, const char* fragmentSource) 
-    {
-        GLuint vertexShader = loadShader(vertexSource, GL_VERTEX_SHADER);
-        GLuint fragmentShader = loadShader(fragmentSource, GL_FRAGMENT_SHADER);
-        GLuint program = glCreateProgram();
-        glAttachShader(program, vertexShader);
-        glAttachShader(program, fragmentShader);
-        glLinkProgram(program);
-        GLint success;
-        glGetProgramiv(program, GL_LINK_STATUS, &success);
-        if (!success) {
-            char infoLog[512];
-            glGetProgramInfoLog(program, 512, nullptr, infoLog);
-            std::cerr << "ERROR::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-        }
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-        return program;
-    }
-}
-
-inline const GLfloat* glmValuePtr(const glm::mat4& mat) 
-{
-    return reinterpret_cast<const GLfloat*>(&mat[0]);
-}
 
 const char* vertexShaderSource =
     "#version 330 core\n"
@@ -199,19 +58,18 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float tx = 0
     ogl::glUseProgram(shaderProgram);
 
     // Compute view and projection matrices using LKGCamera
-    float viewMatrix[16];
-    float projectionMatrix[16];
+    Matrix4 viewMatrix;
+    Matrix4 projectionMatrix;
     camera.computeViewProjectionMatrices(tx, invert, depthiness, focus, viewMatrix, projectionMatrix);
 
     // Compute the model matrix (e.g., rotating cube)
     float timeValue = (float)glfwGetTime();
-    float modelMatrix[16];
-    camera.getModelMatrix(modelMatrix, timeValue, -timeValue);
+    Matrix4 modelMatrix = camera.getModelMatrix(timeValue, -timeValue);
 
     // Set uniforms
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix);
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, viewMatrix);
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projectionMatrix);
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix.m);
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, viewMatrix.m);
+    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projectionMatrix.m);
 
     // Draw the object
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
@@ -297,15 +155,16 @@ int main(void)
         glfwSetWindowSize(window, bridgeData.window_width, bridgeData.window_height);
     }
 
-    LKGCamera camera = LKGCamera();
+    Vector3 position = Vector3(0.0f, 0.0f, 5.0f);
+    Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
+    Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
 
-    camera.position[0] = 0.0f; camera.position[1] = 0.0f; camera.position[2] = 5.0f;
-    camera.target[0] = 0.0f;   camera.target[1] = 0.0f;   camera.target[2] = 0.0f;
-    camera.up[0] = 0.0f;       camera.up[1] = 1.0f;       camera.up[2] = 0.0f;
-    camera.fov = 45.0f;
-    camera.aspectRatio = bridgeData.displayaspect;
-    camera.nearPlane = 0.1f;
-    camera.farPlane = 100.0f;
+    float fov = bridgeData.viewcone;
+    float aspect = bridgeData.displayaspect;
+    float nearPlane = 0.001f;
+    float farPlane = 100.0f;
+
+    LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
 
     // Initialize OpenGL textures and framebuffers
     GLuint render_texture = 0;
@@ -427,9 +286,9 @@ int main(void)
 
     int totalViews = bridgeData.vx * bridgeData.vy;
     float depthiness = 0.9f;  // Adjust as needed
-    float focus = 0.0f;        // Adjust as needed
+    float focus = 0.1f;        // Adjust as needed
 
-  // Rendering loop
+    // Rendering loop
     while (!glfwWindowShouldClose(window))
     {
         // Draw to primary head

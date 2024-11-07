@@ -68,6 +68,8 @@ const char* fragmentShaderSourceTex =
 bool mousePressed = false;
 double lastX = 0.0, lastY = 0.0;
 float angleX = 0.0f, angleY = 0.0f;
+float focus = 0.0f;
+float depthiness = 1.0f;
 
 void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
 {
@@ -135,6 +137,14 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
         angleX += yoffset * 0.005f; // Sensitivity
         angleY += xoffset * 0.005f; // Sensitivity
     }
+}
+
+// Scroll callback function
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    // Adjust the focus based on scroll direction
+    focus += static_cast<float>(yoffset) * 0.075f; // Sensitivity
+    depthiness += static_cast<float>(xoffset) * 0.075f; // Sensitivity
 }
 
 int main(void)
@@ -301,6 +311,7 @@ int main(void)
     // Register mouse callback functions
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
     GLuint shaderProgram    = ogl::createProgram(vertexShaderSource, fragmentShaderSource);
     GLuint shaderProgramTex = ogl::createProgram(vertexShaderSourceTex, fragmentShaderSourceTex);
@@ -353,7 +364,7 @@ int main(void)
     Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
     Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
 
-    float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
+    float fov = 45.0f;
     float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
     float nearPlane = 0.001f;
     float farPlane = 100.0f;
@@ -423,8 +434,6 @@ int main(void)
     glEnable(GL_DEPTH_TEST);
 
     int totalViews = bridgeData.vx * bridgeData.vy;
-    float depthiness = 1.0f;
-    float focus = 0.0f;
 
     while (!glfwWindowShouldClose(window))
     {

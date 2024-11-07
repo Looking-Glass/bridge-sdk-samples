@@ -137,31 +137,34 @@ class LKGCamera
 {
 public:
     // Public variables for camera parameters
-    Vector3 position;     // Camera position (eye)
-    Vector3 target;       // Camera target (center)
+    float size;           // Half-height of focal plane
+    Vector3 center;       // Camera target (center)
     Vector3 up;           // Up vector
     float fov;         // Field of view in degrees
+    float viewcone;    // Degrees from leftmost view to rightmost view, should be determined by display
     float aspectRatio; // Aspect ratio of the viewport
     float nearPlane;   // Near clipping plane
     float farPlane;    // Far clipping plane
 
     LKGCamera()
-        : position(0.0f, 0.0f, 5.0f),
-          target(0.0f, 0.0f, 0.0f),
+        : size(10.0f),
+          center(0.0f, 0.0f, 0.0f),
           up(0.0f, 1.0f, 0.0f),
           fov(45.0f),
+          viewcone(40.0f),
           aspectRatio(1.0f),
           nearPlane(0.1f),
           farPlane(100.0f)
     {
     }
 
-    LKGCamera(const Vector3& pos, const Vector3& tgt, const Vector3& upVec,
-              float fieldOfView, float aspect, float nearP, float farP)
-        : position(pos),
-          target(tgt),
+    LKGCamera(float size, const Vector3& center, const Vector3& upVec,
+              float fieldOfView, float viewcone, float aspect, float nearP, float farP)
+        : size(size),
+          center(center),
           up(upVec),
           fov(fieldOfView),
+          viewcone(viewcone),
           aspectRatio(aspect),
           nearPlane(nearP),
           farPlane(farP)
@@ -169,10 +172,10 @@ public:
     }
 
     // Get the view matrix
-    Matrix4 getViewMatrix() const
-    {
-        return computeViewMatrix(position, target, up);
-    }
+    // Matrix4 getViewMatrix() const
+    // {
+    //     return computeViewMatrix(size, center, up);
+    // }
 
     // Get the projection matrix
     Matrix4 getProjectionMatrix() const
@@ -186,38 +189,50 @@ public:
         return computeModelMatrix(angleX, angleY);
     }
 
+    // Get the camera's distance from center of focal plane, given FOV
+    float getCameraDistance() const
+    {
+        return size / tan(fov * (3.1415926535f / 180.0f));
+    }
+
+    float getCameraOffset() const
+    {
+        return getCameraDistance() * tan(viewcone * (3.1415926535f / 180.0f));
+    }
+
     // Compute view and projection matrices for hologram views
     void computeViewProjectionMatrices(float normalizedView, bool invert, float depthiness, float focus, Matrix4& viewMatrix, Matrix4& projectionMatrix)
     {
         // Adjust camera position based on normalizedView and depthiness
-        float offset = (normalizedView * 2.0f - 1.0f) * depthiness;
-        Vector3 adjustedPosition = position - Vector3(offset, 0.0f, 0.0f);
+        float offset = (normalizedView - 0.5f) * depthiness * getCameraOffset();
+        Vector3 adjustedPosition = center + Vector3(offset, 0.0f, 0.0f);
 
         // Adjust up vector if invert is true
         Vector3 adjustedUp = invert ? Vector3(up.x, -up.y, up.z) : up;
 
         // Compute the view matrix with the adjusted position and up vector
-        viewMatrix = computeViewMatrix(adjustedPosition, target, adjustedUp);
+        viewMatrix = computeViewMatrix(size, center, adjustedUp, offset);
 
         // Compute the standard projection matrix
         projectionMatrix = computeProjectionMatrix();
 
         // Apply frustum shift to the projection matrix
-        float viewPosition = normalizedView; 
+        float viewPosition = normalizedView;
         float centerPosition = 0.5f;
         float distanceFromCenter = viewPosition - centerPosition;
         float frustumShift = distanceFromCenter * focus;
 
         // Modify the projection matrix to include frustum shift (column-major order)
-        projectionMatrix[8] += frustumShift; 
+        projectionMatrix[8] -= offset * 2.0f / (size * aspectRatio);
     }
 
 private:
     // Helper method to compute the view matrix
-    Matrix4 computeViewMatrix(const Vector3& eye, const Vector3& center, const Vector3& upVec) const
+    Matrix4 computeViewMatrix(float size, const Vector3& center, const Vector3& upVec, float offset) const
     {
         // Compute forward vector f = normalize(center - eye)
-        Vector3 f = (center - eye).normalized();
+        // Vector3 f = (center - eye).normalized();
+        Vector3 f = Vector3(0.0f, 0.0f, 1.0f); // todo: camera rotations
 
         // Compute up vector u = normalize(up)
         Vector3 u = upVec.normalized();
@@ -247,13 +262,14 @@ private:
         matrix[11] = 0.0f;
 
         // Compute dot products for translation
-        float dot_s_eye = -Vector3::dot(s, eye);
-        float dot_u_eye = -Vector3::dot(u, eye);
-        float dot_f_eye = Vector3::dot(f, eye);
+        // float dot_s_eye = -Vector3::dot(s, eye);
+        // float dot_u_eye = -Vector3::dot(u, eye);
+        // float dot_f_eye = Vector3::dot(f, eye);
 
-        matrix[12] = dot_s_eye;
-        matrix[13] = dot_u_eye;
-        matrix[14] = dot_f_eye;
+        // translation, todo: support rotation
+        matrix[12] = offset;
+        matrix[13] = 0.0f;
+        matrix[14] = getCameraDistance();
         matrix[15] = 1.0f;
 
         return matrix;
@@ -273,8 +289,8 @@ private:
         matrix[0] = f / aspect;
         matrix[5] = f;
         matrix[10] = (f_p + n) / (n - f_p);
-        matrix[11] = -1.0f;
-        matrix[14] = (2 * f_p * n) / (n - f_p);
+        matrix[11] = 1.0f;
+        matrix[14] = -(2 * f_p * n) / (n - f_p);
 
         return matrix;
     }
@@ -306,7 +322,7 @@ private:
 
         // Translation matrix (moving the object back by 3 units on Z-axis)
         Matrix4 translation = Matrix4::Identity();
-        translation[14] = -3.0f;
+        // translation[14] = -3.0f;
 
         // Final model matrix
         Matrix4 modelMatrix = rotation * translation;

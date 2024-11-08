@@ -204,7 +204,7 @@ public:
     void computeViewProjectionMatrices(float normalizedView, bool invert, float depthiness, float focus, Matrix4& viewMatrix, Matrix4& projectionMatrix)
     {
         // Adjust camera position based on normalizedView and depthiness
-        float offset = (normalizedView - 0.5f) * depthiness * getCameraOffset();
+        float offset = -(normalizedView - 0.5f) * depthiness * getCameraOffset();
         Vector3 adjustedPosition = center + Vector3(offset, 0.0f, 0.0f);
 
         // Adjust up vector if invert is true
@@ -223,7 +223,7 @@ public:
         float frustumShift = distanceFromCenter * focus;
 
         // Modify the projection matrix to include frustum shift (column-major order)
-        projectionMatrix[8] -= offset * 2.0f / (size * aspectRatio);
+        projectionMatrix[8] += offset * 2.0f / (size * aspectRatio);
     }
 
 private:
@@ -269,7 +269,7 @@ private:
         // translation, todo: support rotation
         matrix[12] = offset;
         matrix[13] = 0.0f;
-        matrix[14] = getCameraDistance();
+        matrix[14] = -getCameraDistance();
         matrix[15] = 1.0f;
 
         return matrix;
@@ -289,8 +289,8 @@ private:
         matrix[0] = f / aspect;
         matrix[5] = f;
         matrix[10] = (f_p + n) / (n - f_p);
-        matrix[11] = 1.0f;
-        matrix[14] = -(2 * f_p * n) / (n - f_p);
+        matrix[11] = -1.0f;
+        matrix[14] = (2 * f_p * n) / (n - f_p);
 
         return matrix;
     }

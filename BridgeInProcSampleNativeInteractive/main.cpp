@@ -4,6 +4,7 @@
 #include <GL/glext.h>
 #include <string.h>
 #include <bridge.h>
+#include <bridge_utils.hpp>
 #include <LKGCamera.h>
 #include <memory>
 #include <codecvt>
@@ -64,10 +65,70 @@ const char* fragmentShaderSourceTex =
     "    FragColor = texture(texture1, TexCoord);\n"
     "}\n";
 
+// Vertex data for a cube
+const float vertices[] =
+{
+    // Positions           // Colors
+    -1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 0.0f,  // Front face
+     1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
+     1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
+    -1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
+
+    -1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 0.0f,  // Back face
+     1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
+     1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
+    -1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
+
+    -1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 1.0f,  // Left face
+    -1.0f, -1.0f,  1.0f,  0.0f, 0.0f, 1.0f,
+    -1.0f,  1.0f,  1.0f,  0.0f, 0.0f, 1.0f,
+    -1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 1.0f,
+
+     1.0f, -1.0f, -1.0f,  1.0f, 1.0f, 0.0f,  // Right face
+     1.0f, -1.0f,  1.0f,  1.0f, 1.0f, 0.0f,
+     1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 0.0f,
+     1.0f,  1.0f, -1.0f,  1.0f, 1.0f, 0.0f,
+
+    -1.0f, -1.0f, -1.0f,  0.0f, 1.0f, 1.0f,  // Bottom face
+     1.0f, -1.0f, -1.0f,  0.0f, 1.0f, 1.0f,
+     1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
+    -1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
+
+    -1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 1.0f,  // Top face
+     1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 1.0f,
+     1.0f,  1.0f,  1.0f,  1.0f, 0.0f, 1.0f,
+    -1.0f,  1.0f,  1.0f,  1.0f, 0.0f, 1.0f
+};
+
+const unsigned int indices[] =
+{
+    0, 1, 2, 2, 3, 0,        // Front face
+    4, 5, 6, 6, 7, 4,        // Back face
+    8, 9, 10, 10, 11, 8,     // Left face
+    12, 13, 14, 14, 15, 12,  // Right face
+    16, 17, 18, 18, 19, 16,  // Bottom face
+    20, 21, 22, 22, 23, 20   // Top face
+};
+
+// Vertex data for a full-screen quad
+const float quadVertices[] = {
+    // positions        // texture Coords
+    -1.0f,  1.0f, 0.0f,  0.0f, 0.0f,
+    -1.0f, -1.0f, 0.0f,  0.0f, 1.0f,
+     1.0f, -1.0f, 0.0f,  1.0f, 1.0f,
+     1.0f,  1.0f, 0.0f,  1.0f, 0.0f
+};
+
+const unsigned int quadIndices[] = {
+    0, 1, 2,
+    2, 3, 0
+};
+
 // Global variables for mouse control
 bool mousePressed = false;
 double lastX = 0.0, lastY = 0.0;
 float angleX = 0.0f, angleY = 0.0f;
+
 float focus = 0.0f;
 float depthiness = 1.0f;
 
@@ -160,6 +221,9 @@ int main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);         // Remove window decorations
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);         // Make the window non-resizable
+    glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);           // Keeps window on top (optional)
 
     window = glfwCreateWindow(800, 800, "Bridge InProc SDK Native Interactive Sample -- No Device Connected!", nullptr, nullptr);
     
@@ -173,7 +237,7 @@ int main(void)
 
     ogl::loadOpenGLFunctions();
     
-    // Create the controller
+    // Create the bridge controller
     std::unique_ptr<Controller> controller = std::make_unique<Controller>();
 
     #ifdef _WIN32
@@ -187,81 +251,89 @@ int main(void)
 
     // Create BridgeData
     WINDOW_HANDLE wnd = 0;
+    std::vector<DisplayInfo> displays;
+
     if (controller)
     {
-        // Get displays
-        int display_count = 0;
-        controller->GetDisplays(&display_count, nullptr);
-        std::vector<unsigned long> display_ids(display_count);
-        controller->GetDisplays(&display_count, display_ids.data());
+        // Get display information list
+        displays = controller->GetDisplayInfoList();
 
-        if (!display_ids.empty())
+        // Print all display names
+        for (const auto& displayInfo : displays)
         {
-            unsigned long first_display_id = display_ids.front();
-            if (controller->InstanceOffscreenWindowGL(&wnd, first_display_id))
-            {
-                // Window handle created successfully
-            }
-            else
-            {
-                wnd = 0;
-            }
-        }
-    }
-
-    BridgeData bridgeData = BridgeData::Create(*controller, wnd);
-    bool isBridgeDataInitialized = (bridgeData.wnd != 0);
-
-    // Update window size and title
-    if (isBridgeDataInitialized)
-    {
-        glfwSetWindowSize(window, bridgeData.output_width, bridgeData.output_height);
-
-        // Set window title using display info
-        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-        auto it = std::find_if(bridgeData.display_infos.begin(), bridgeData.display_infos.end(),
-                            [&bridgeData](const DisplayInfo& info) {
-                                return info.display_id == bridgeData.display_index;
-                            });
-
-        if (it != bridgeData.display_infos.end())
-        {
-            const DisplayInfo& displayInfo = *it;
-            std::string window_title = "Bridge InProc SDK Native Interactive Sample -- " +
-                                    converter.to_bytes(displayInfo.name) +
-                                    " : " + converter.to_bytes(displayInfo.serial);
-            glfwSetWindowTitle(window, window_title.c_str());
+            std::wcout << displayInfo.name << std::endl;
         }
 
-        // Move the window to the correct monitor based on bridgeData.window_position
-        int monitorCount;
-        GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
-        GLFWmonitor* targetMonitor = nullptr;
-
-        // Find the monitor that matches the position in bridgeData.window_position
-        for (int i = 0; i < monitorCount; i++)
+        // For now we will use the first looking glass display
+        if (!displays.empty() && controller->InstanceOffscreenWindowGL(&wnd, displays[0].display_id))
         {
-            int xpos = 0, ypos = 0;
-            glfwGetMonitorPos(monitors[i], &xpos, &ypos);
-
-            if (xpos == bridgeData.window_position.x && ypos == bridgeData.window_position.y)
-            {
-                targetMonitor = monitors[i];
-                break;
-            }
-        }
-
-        if (targetMonitor)
-        {
-            // Get the video mode of the target monitor
-            const GLFWvidmode* mode = glfwGetVideoMode(targetMonitor);
-
-            // Set the window to fullscreen on the target monitor
-            glfwSetWindowMonitor(window, targetMonitor, 0, 0, bridgeData.output_width, bridgeData.output_height, GLFW_DONT_CARE);
+            // Successfully created the window handle
         }
         else
         {
-            // If no matching monitor is found, position the window at the specified coordinates
+            wnd = 0;
+        }
+    }
+
+    BridgeWindowData bridgeData = controller ? controller->GetWindowData(wnd) : BridgeWindowData();
+    bool isBridgeDataInitialized = (bridgeData.wnd != 0);
+
+    // Update window size and title if BridgeData is initialized
+    if (isBridgeDataInitialized)
+    {
+        // Find display info for the window title based on display index
+        auto displayInfoIt = std::find_if(
+            displays.begin(),
+            displays.end(),
+            [&bridgeData](const DisplayInfo& info)
+            {
+                return info.display_id == bridgeData.display_index;
+            }
+        );
+
+        if (displayInfoIt != displays.end())
+        {
+            std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+            std::string window_title = "Bridge InProc SDK Native Interactive Sample -- " +
+                converter.to_bytes(displayInfoIt->name) +
+                " : " + converter.to_bytes(displayInfoIt->serial);
+            glfwSetWindowTitle(window, window_title.c_str());
+        }
+
+        // Optionally find and set the correct monitor based on window position for exclusive full screen
+        bool useExclusiveFullScreen = false;
+        if (useExclusiveFullScreen)
+        {
+            int monitorCount;
+            GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+            GLFWmonitor* targetMonitor = nullptr;
+
+            for (int i = 0; i < monitorCount; ++i)
+            {
+                int xpos = 0, ypos = 0;
+                glfwGetMonitorPos(monitors[i], &xpos, &ypos);
+
+                if (xpos == bridgeData.window_position.x && ypos == bridgeData.window_position.y)
+                {
+                    targetMonitor = monitors[i];
+                    break;
+                }
+            }
+
+            if (targetMonitor)
+            {
+                const GLFWvidmode* mode = glfwGetVideoMode(targetMonitor);
+                glfwSetWindowMonitor(window, targetMonitor, 0, 0, bridgeData.output_width, bridgeData.output_height, GLFW_DONT_CARE);
+            }
+            else
+            {
+                glfwSetWindowSize(window, bridgeData.output_width, bridgeData.output_height);
+                glfwSetWindowPos(window, bridgeData.window_position.x, bridgeData.window_position.y);
+            }
+        }
+        else
+        {
+            glfwSetWindowSize(window, bridgeData.output_width, bridgeData.output_height);
             glfwSetWindowPos(window, bridgeData.window_position.x, bridgeData.window_position.y);
         }
 
@@ -316,61 +388,6 @@ int main(void)
     GLuint shaderProgram    = ogl::createProgram(vertexShaderSource, fragmentShaderSource);
     GLuint shaderProgramTex = ogl::createProgram(vertexShaderSourceTex, fragmentShaderSourceTex);
 
-    float vertices[] = 
-    {
-        // Positions           // Colors
-        -1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 0.0f,  // Front face
-         1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
-         1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
-        -1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
-
-        -1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 0.0f,  // Back face
-         1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-         1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-        -1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-
-        -1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 1.0f,  // Left face
-        -1.0f, -1.0f,  1.0f,  0.0f, 0.0f, 1.0f,
-        -1.0f,  1.0f,  1.0f,  0.0f, 0.0f, 1.0f,
-        -1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-
-         1.0f, -1.0f, -1.0f,  1.0f, 1.0f, 0.0f,  // Right face
-         1.0f, -1.0f,  1.0f,  1.0f, 1.0f, 0.0f,
-         1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 0.0f,
-         1.0f,  1.0f, -1.0f,  1.0f, 1.0f, 0.0f,
-
-        -1.0f, -1.0f, -1.0f,  0.0f, 1.0f, 1.0f,  // Bottom face
-         1.0f, -1.0f, -1.0f,  0.0f, 1.0f, 1.0f,
-         1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-
-        -1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 1.0f,  // Top face
-         1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 1.0f,
-         1.0f,  1.0f,  1.0f,  1.0f, 0.0f, 1.0f,
-        -1.0f,  1.0f,  1.0f,  1.0f, 0.0f, 1.0f
-    };
-
-    unsigned int indices[] = 
-    {
-        0, 1, 2, 2, 3, 0,        // Front face
-        4, 5, 6, 6, 7, 4,        // Back face
-        8, 9, 10, 10, 11, 8,     // Left face
-        12, 13, 14, 14, 15, 12,  // Right face
-        16, 17, 18, 18, 19, 16,  // Bottom face
-        20, 21, 22, 22, 23, 20   // Top face
-    };
-
-    Vector3 position = Vector3(0.0f, 0.0f, 5.0f);
-    Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
-    Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
-
-    float fov = 45.0f;
-    float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
-    float nearPlane = 0.001f;
-    float farPlane = 100.0f;
-
-    LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
-
     GLuint vaoCube, vboCube, eboCube;
     ogl::glGenVertexArrays(1, &vaoCube);
     ogl::glBindVertexArray(vaoCube);
@@ -391,19 +408,7 @@ int main(void)
 
     ogl::glBindVertexArray(0);
 
-     // Vertex data for a full-screen quad
-    float quadVertices[] = {
-        // positions        // texture Coords
-        -1.0f,  1.0f, 0.0f,  0.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f,  0.0f, 1.0f,
-         1.0f, -1.0f, 0.0f,  1.0f, 1.0f,
-         1.0f,  1.0f, 0.0f,  1.0f, 0.0f
-    };
 
-    unsigned int quadIndices[] = {
-        0, 1, 2,
-        2, 3, 0
-    };
 
     GLuint vaoQuad, vboQuad, eboQuad;
     ogl::glGenVertexArrays(1, &vaoQuad);
@@ -433,6 +438,17 @@ int main(void)
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_DEPTH_TEST);
 
+    Vector3 position = Vector3(0.0f, 0.0f, 5.0f);
+    Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
+    Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
+
+    float fov = 45.0f;
+    float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
+    float nearPlane = 0.001f;
+    float farPlane = 100.0f;
+
+    LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
+
     int totalViews = bridgeData.vx * bridgeData.vy;
 
     while (!glfwWindowShouldClose(window))
@@ -451,12 +467,15 @@ int main(void)
             {
                 for (int x = 0; x < bridgeData.vx; x++)
                 {
-                    int invertedY = bridgeData.vy - 1 - y;
-                    glViewport(x * bridgeData.view_width, invertedY * bridgeData.view_height, bridgeData.view_width, bridgeData.view_height);
+                    int viewPositionX = x * bridgeData.view_width;
 
+                    int invertedY = bridgeData.vy - 1 - y;
+                    int viewPositionY = invertedY * bridgeData.view_height;
+                    
                     int viewIndex = y * bridgeData.vx + x;
                     float normalizedView = static_cast<float>(viewIndex) / static_cast<float>(totalViews - 1);
 
+                    glViewport(viewPositionX, viewPositionY, bridgeData.view_width, bridgeData.view_height);                    
                     drawScene(shaderProgram, vaoCube, camera, normalizedView, true, depthiness, focus);
                 }
             }

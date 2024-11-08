@@ -44,20 +44,6 @@ const uint32_t OFFSCREEN_WINDOW           = -2;
 
 typedef unsigned long WINDOW_HANDLE;
 
-struct Dim
-{
-    unsigned long width  = 0;
-    unsigned long height = 0;
-};
-
-struct BridgeVersionAndPostfix
-{
-    unsigned long major = 0;
-    unsigned long minor = 0;
-    unsigned long build = 0; 
-    std::wstring       postfix;
-};
-
 struct CalibrationSubpixelCell
 {
 	float ROffsetX;
@@ -67,6 +53,7 @@ struct CalibrationSubpixelCell
 	float BOffsetX;
 	float BOffsetY;
 };
+
 
 struct LKGCalibration
 {
@@ -84,56 +71,253 @@ struct LKGCalibration
     std::vector<CalibrationSubpixelCell> cells;
 };
 
-struct DefaultQuitSettings
-{
-    float aspect        = 0.0f;
-    int   quilt_width   = 0;
-    int   quilt_height  = 0;
-    int   quilt_columns = 0;
-    int   quilt_rows    = 0;
-};
 
-struct WindowPos
-{
-    long x = 0;
-    long y = 0;
-};
-
+/** 
+ * @brief function initializes the Bridge thread and allocates required resources
+ * 
+ * @param app_name the C-string name to associate with this application instance
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note This function must be called prior to any other from the Bridge SDK. 
+ * 
+ * @see Controller::Initialize
+ */
 #ifdef _WIN32
 extern "C" INTEROP_EXPORT bool initialize_bridge(const wchar_t *app_name);
 #else
 extern "C" INTEROP_EXPORT bool initialize_bridge(const char *app_name);
 #endif
 
+/** 
+ * This function uninitializes the Bridge thread and deallocates required resources
+ * 
+ * @return always returns TRUE
+ * 
+ * @see Controller::Uninitialize
+ */
 extern "C" INTEROP_EXPORT bool uninitialize_bridge();
 
-// mlc: call twice -- first set postfix = nullptr, it will return the other params.
+/** 
+ * @brief This function queries the Bridge SDK to get the version number
+ * 
+ * The caller is responsible for allocating the postfix C-string buffer. To get 
+ * the buffer size, this function should be called twice. When called with the 
+ * postfix parameter set to nullptr, it will return the size of the postfix string. 
+ * When called with the postfix parameter set to a buffer pointer, the build 
+ * hash will be copied into the supplied buffer.
+ * 
+ * @return the semantic version of Bridge with build commit hash
+ * 
+ */
 extern "C" INTEROP_EXPORT bool get_bridge_version(unsigned long* major, unsigned long *minor, unsigned long* build, int* number_of_postfix_wchars, wchar_t* postfix);
 
+/**
+ * @brief creates a new window using display parameters
+ * 
+ * If the display_index parameter is not supplied, the Bridge SDK will search 
+ * for the first display that matches a Looking Glass product and use that. 
+ * The window position and size will match the selected display.
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param display_index the optional index of the display to configure the window for
+ * 
+ * @return TRUE when a window was created, FALSE otherwise 
+ * 
+ * @note The window created is meant for use with OpenGL texture sharing
+ * 
+ * @see instance_offscreen_window
+ * @see Controller::InstanceWindowGL
+ */
 extern "C" INTEROP_EXPORT bool instance_window_gl(WINDOW_HANDLE *wnd, unsigned long display_index = FIRST_LOOKING_GLASS_DEVICE);
+
+/**
+ * @brief creates a new window using the input parameters
+ * 
+ * The window width and height will match in the input parameters.
+ * The calibration parameters will be loaded from the input calibration file path.
+ * This function is meant for automated rendering and does not require a display.
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param width the desired width of the new window
+ * @param height the desired height of the new window
+ * @param calibration_path the filesystem path for a Looking Glass calibration file
+ * 
+ * @return TRUE when a window was created, FALSE otherwise 
+ * 
+ * @see instance_window_gl
+ * @see Controller::InstanceOffscreenWindow
+ */
+extern "C" INTEROP_EXPORT bool instance_offscreen_window(WINDOW_HANDLE *wnd, unsigned long width, unsigned long height, const wchar_t* calibration_path);
 
 extern "C" INTEROP_EXPORT bool instance_offscreen_window_gl(WINDOW_HANDLE *wnd, unsigned long display_index = FIRST_LOOKING_GLASS_DEVICE);
 extern "C" INTEROP_EXPORT bool get_offscreen_window_texture_gl(WINDOW_HANDLE wnd, unsigned long long* texture, PixelFormats* format, unsigned long* width, unsigned long* height);
 
+/**
+ * @brief converts an RGBD image into a quilt image using input parameters
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param columns the desired output quilt columns
+ * @param rows the desired output quilt rows
+ * @param views the desired total number of views
+ * @param aspect the aspect ratio of the resulting quilt
+ * @param zoom the zoom applied to the RGBD input
+ * @param cam_dist the camera distance applied during RGBD rendering
+ * @param fov the field of view applied during RGBD rendering
+ * @param crop_pos_x the x coordinate offset applied during RGBD rendering
+ * @param crop_pos_y the y coordinate offset applied during RGBD rendering
+ * @param depth_inversion a toggle to invert the depth map: 0=FALSE, 1=TRUE
+ * @param chroma_depth a toggle to interpret the depth map using a full color spectrum: 0=FALSE, 1=TRUE
+ * @param depth_loc the location of the depth map within the image: 0=top, 1=bottom, 2=right, 3=left
+ * @param depthiness the amount of z-scaling applied to the RGBD input
+ * @param depth_cutoff a z-depth threshold value applied to the RGBD input
+ * @param focus the z-depth value representing the focal plane of the resulting quilt
+ * @param input_path the local filesystem path to the input RGBD image
+ * @param output_path the local filesystem path for the desired output quilt image
+ * 
+ * @return TRUE when successful, FALSE otherwise 
+ * 
+ * @see Controller::QuiltifyRGBD
+ */
 extern "C" INTEROP_EXPORT bool quiltify_rgbd(WINDOW_HANDLE wnd, unsigned long columns, unsigned long rows, unsigned long views, float aspect, float zoom, float cam_dist, float fov, float crop_pos_x, float crop_pos_y, unsigned long depth_inversion, unsigned long chroma_depth, unsigned long depth_loc, float depthiness, float depth_cutoff, float focus, const wchar_t* input_path, const wchar_t* output_path);
 
+/**
+ * @brief returns with size dimensions of the input window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param width the pointer to the returned width value
+ * @param height the pointer to the returned height value
+ * 
+ * @return width and height for the input window
+ * 
+ * @see get_window_position
+ * @see Controller::GetWindowDimensions
+ */
 extern "C" INTEROP_EXPORT bool get_window_dimensions(WINDOW_HANDLE wnd, unsigned long* width, unsigned long* height);
+
+/**
+ * @brief returns with position of the input window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param x the pointer to the returned x coordinate value
+ * @param y the pointer to the returned y coordinate value
+ * 
+ * @return the x and y coordinates for the input window
+ * 
+ * @see get_window_dimensions
+ * @see Controller::GetWindowPosition
+ */
 extern "C" INTEROP_EXPORT bool get_window_position(WINDOW_HANDLE wnd, long* x, long* y);
 
+/**
+ * @brief returns the maximum texture size for rendering to the window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param size the pointer to the returned texture size
+ * 
+ * @return the maximum texture size dimension to be used for rendering to the window
+ * 
+ * @see set_interop_quilt_texture_gl
+ * @see draw_interop_quilt_texture_gl
+ * @see Controller::GetMaxTextureSize
+ */
 extern "C" INTEROP_EXPORT bool get_max_texture_size(WINDOW_HANDLE wnd, unsigned long* size);
 
+/**
+ * @brief assigns a shared render texture for applying the Looking Glass optical transformation
+ * 
+ * For OpenGL applications, a GL texture must be assigned as the shared render target
+ * for use with draw_interop_quilt_texture_gl. This function designates the input texture
+ * as the source of quilt views for which the optical transformation will be applied
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param texture the OpenGL texture handle to be shared between rendering contexts
+ * @param format the pixel format of the supplied texture
+ * @param width the width of the supplied texture
+ * @param height the height of the supplied texture
+ * @param vx the horizontal count of quilt views (columns) rendered to the texture
+ * @param vy the vertical count of quilt views (rows) rendered to the texture
+ * @param aspect the aspect ratio of the views
+ * @param zoom the optional zoom to be applied
+ * 
+ * @return FALSE for invalid configurations, TRUE otherwise
+ * 
+ * @see draw_interop_quilt_texture_gl
+ * @see Controller::SetInteropQuiltTextureGL
+ */
 extern "C" INTEROP_EXPORT bool set_interop_quilt_texture_gl(WINDOW_HANDLE wnd, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height, unsigned long vx, unsigned long vy, float aspect, float zoom);
 
+/**
+ * @brief triggers the Looking Glass optical transformation as a rendering post-processing step
+ * 
+ * For OpenGL applications, a GL texture must be assigned as the shared render target
+ * for use with draw_interop_quilt_texture_gl. This function designates the input texture
+ * as the source of quilt views for which the optical transformation will be applied
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param texture the texture handle to be shared between rendering contexts
+ * @param format the pixel format of the supplied texture
+ * @param width the width of the supplied texture
+ * @param height the height of the supplied texture
+ * @param vx the horizontal count of quilt views (columns) rendered to the texture
+ * @param vy the vertical count of quilt views (rows) rendered to the texture
+ * @param aspect the aspect ratio of the views
+ * @param zoom the optional zoom to be applied
+ * 
+ * @return FALSE for invalid configurations, TRUE otherwise
+ * 
+ * @see set_interop_quilt_texture_gl
+ * @see Controller::DrawInteropQuiltTextureGL
+ */
 extern "C" INTEROP_EXPORT bool draw_interop_quilt_texture_gl(WINDOW_HANDLE wnd, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height, unsigned long vx, unsigned long vy, float aspect, float zoom);
 
+/**
+ * @brief shows or hides the rending window based upon the input flag
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param flag the toggle to show or hide the window: FALSE=hide, TRUE=show
+ * 
+ * @return FALSE for an invalid window, TRUE otherwise
+ * 
+ */
 extern "C" INTEROP_EXPORT bool show_window(WINDOW_HANDLE wnd, bool flag);
 
+/**
+ * @brief saves the input OpenGL texture to a file
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param filename the filesystem path for the saved image
+ * @param texture the texture handle to be saved to disk
+ * @param format the pixel format of the supplied texture
+ * @param width the width of the supplied texture
+ * @param height the height of the supplied texture
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see save_image_to_file
+ * @see Controller::SaveTextureToFileGL
+ */
 #ifdef WIN32
 extern "C" INTEROP_EXPORT bool save_texture_to_file_gl(WINDOW_HANDLE wnd, wchar_t* filename, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height);
 #else
 extern "C" INTEROP_EXPORT bool save_texture_to_file_gl(WINDOW_HANDLE wnd, char* filename, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height);
 #endif
 
+/**
+ * @brief saves the raw image buffer to a file
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param filename the filesystem path for the saved image
+ * @param image the raw image buffer to be saved
+ * @param format the pixel format of the supplied image
+ * @param width the width of the supplied image
+ * @param height the height of the supplied image
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see save_texture_to_file_gl
+ * @see Controller::SaveImageToFile
+ */
 #ifdef WIN32
 extern "C" INTEROP_EXPORT bool save_image_to_file(WINDOW_HANDLE wnd, wchar_t* filename, void* image, PixelFormats format, unsigned long width, unsigned long height);
 #else
@@ -143,6 +327,7 @@ extern "C" INTEROP_EXPORT bool save_image_to_file(WINDOW_HANDLE wnd, char* filen
 #ifdef WIN32
 extern "C" INTEROP_EXPORT bool device_from_resource_dx(IUnknown * dx_resource, IUnknown **dx_device);
 extern "C" INTEROP_EXPORT bool release_device_dx(IUnknown * dx_device);
+extern "C" INTEROP_EXPORT bool instance_window_dx(IUnknown *dx_device, WINDOW_HANDLE *wnd, unsigned long display_index = FIRST_LOOKING_GLASS_DEVICE);
 extern "C" INTEROP_EXPORT bool instance_offscreen_window_dx(IUnknown *dx_device, WINDOW_HANDLE *wnd, unsigned long display_index = FIRST_LOOKING_GLASS_DEVICE);
 extern "C" INTEROP_EXPORT bool register_texture_dx(WINDOW_HANDLE wnd, IUnknown *dx_texture);
 extern "C" INTEROP_EXPORT bool unregister_texture_dx(WINDOW_HANDLE wnd, IUnknown *dx_texture);
@@ -165,8 +350,33 @@ extern "C" INTEROP_EXPORT bool instance_offscreen_window_metal(void *metal_devic
 extern "C" INTEROP_EXPORT bool get_offscreen_window_texture_metal(WINDOW_HANDLE wnd, void** texture);
 #endif
 
-// mlc: call twice -- first set cells = nullptr, it will return the other params.
-// Then alloc the SubpixelCell array on the client side with the apropos size and call again with that pointer.
+/** 
+ * @brief returns the calibration values for the given window
+ * 
+ * The calibration parameters assocaited with the input window will be returned 
+ * as parameter values. If the cells pointer is null, it will be ignored. Any 
+ * other parameters with null values will be considered invalid.
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param center the pointer to the returned center value
+ * @param pitch the pointer to the returned pitch value
+ * @param slope the pointer to the returned slope value
+ * @param width the pointer to the returned width value
+ * @param height the pointer to the returned height value
+ * @param dpi the pointer to the returned DPI value
+ * @param flip_x the pointer to the returned horizontal flip toggle. 0=FALSE, 1=TRUE
+ * @param invView the pointer to the returned inverted views toggle. 0=FALSE, 1=TRUE
+ * @param viewcone the pointer to the returned viewcone value
+ * @param fringe the pointer to the returned fringe value
+ * @param cell_pattern_mode the pointer to the returned cell pattern mode
+ * @param number_of_cells the pointer to the returned cell count
+ * @param cells the pointer to the returned cell pattern struct
+ * 
+ * @return FALSE for invalid input parameters, TRUE otherwise
+ * 
+ * @see Controller::GetCalibration
+ * @see get_calibration_for_display
+ */
 extern "C" INTEROP_EXPORT bool get_calibration(WINDOW_HANDLE wnd, 
 	                                           float* center, 
 	                                           float *pitch, 
@@ -182,41 +392,376 @@ extern "C" INTEROP_EXPORT bool get_calibration(WINDOW_HANDLE wnd,
 											   int* number_of_cells,
 	                                           CalibrationSubpixelCell* cells);
 
-// mlc: call twice -- first set device_name = nullptr, it will return the other params.
-// Then alloc the device_name array on the client side with the apropos size and call again with that pointer.
+/**
+ * @brief returns the device name for the given window 
+ * 
+ * The caller is responsible for allocating the device_name C-string buffer. 
+ * To get the buffer size, this function should be called twice. When called
+ * with the device_name parameter set to nullptr, it will return the size of 
+ * the device_name string. When called with the device_name parameter set to 
+ * a buffer pointer, the device name will be copied into the supplied buffer
+ * 
+ * The size of the buffer is returned as a count of wide string characters.
+ * In practice, wchar is 32 bits on Linux and MacOS but 16 bits on Windows. 
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param number_of_device_name_wchars the pointer to the returned size of the C-string buffer
+ * @param device_name the pointer to the returned size device name C-string buffer
+ * 
+ * @return FALSE if number_of_device_name_wchars is null, TRUE otherwise
+ * 
+ * @see Controller::GetDeviceName
+ * @see get_device_name_for_display
+ */
 extern "C" INTEROP_EXPORT bool get_device_name(WINDOW_HANDLE wnd, int* number_of_device_name_wchars, wchar_t* device_name);
 
-// mlc: call twice -- first set serial = nullptr, it will return the other params.
-// Then alloc the serial array on the client side with the apropos size and call again with that pointer.
+/**
+ * @brief returns the device serial number for the given window 
+ * 
+ * The caller is responsible for allocating the serial number C-string buffer. 
+ * To get the buffer size, this function should be called twice. When called
+ * with the serial parameter set to nullptr, it will return the size of 
+ * the serial string. When called with the serial parameter set to 
+ * a buffer pointer, the device serial will be copied into the supplied buffer
+ * 
+ * The size of the buffer is returned as a count of wide string characters.
+ * In practice, wchar is 32 bits on Linux and MacOS but 16 bits on Windows. 
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param number_of_serial_wchars the pointer to the returned size of the C-string buffer
+ * @param serial the pointer to the returned size device serial C-string buffer
+ * 
+ * @return FALSE if number_of_serial_wchars is null, TRUE otherwise
+ * 
+ * @see Controller::GetDeviceSerial
+ * @see get_device_serial_for_display
+ */
 extern "C" INTEROP_EXPORT bool get_device_serial(WINDOW_HANDLE wnd, int* number_of_serial_wchars, wchar_t* serial);
 
+/**
+ * @brief returns the ideal quilt settings for the given window
+ * 
+ * The ideal quilt settings are aset of heuristics defined by Looking Glass 
+ * for each display product.
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param aspect the pointer to the returned aspect value
+ * @param quilt_width the pointer to the returned width value
+ * @param quilt_height the pointer to the returned height value
+ * @param quilt_columns the pointer to the returned quilt columns value
+ * @param quilt_rows the pointer to the returned quilt rows value
+ * 
+ * @return FALSE if number_of_serial_wchars is null, TRUE otherwise
+ * 
+ * @see Controller::GetDefaultQuiltSettings
+ */
 extern "C" INTEROP_EXPORT bool get_default_quilt_settings(WINDOW_HANDLE wnd, float* aspect, int* quilt_width, int* quilt_height, int* quilt_columns, int* quilt_rows);
 
+/**
+ * @brief returns the display index used to render the window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param display_index the zero-based index of the display
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see Controller::GetDisplayForWindow
+ */
 extern "C" INTEROP_EXPORT bool get_display_for_window(WINDOW_HANDLE wnd, unsigned long* display_index);
 
+/**
+ * @brief returns the type of display product to render the window 
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param hw_enum the display enum value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see get_device_type_for_display
+ * @see Controller::GetDeviceType
+ */
 extern "C" INTEROP_EXPORT bool get_device_type(WINDOW_HANDLE wnd, int* hw_enum);
 
+/**
+ * @brief returns the viewcone value for the display product that renders the window 
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param viewcone the pointer to the returned viewcone value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see get_viewcone_for_display
+ * @see Controller::GetViewCone
+ */
 extern "C" INTEROP_EXPORT bool get_viewcone(WINDOW_HANDLE wnd, float* viewcone);
 
-// mlc: call twice -- first set indices = nullptr, it will return the other params.
-// Then alloc the indices array on the client side with the apropos size and call again with that pointer.
+/**
+ * @brief returns the display indices attached to the host
+ * 
+ * The caller is responsible for allocating the array of index values
+ * To get the array size, this function should be called twice. When called
+ * with the indices parameter set to nullptr, it will return the size of 
+ * the indices array. When called with the indices parameter set to 
+ * an array pointer, the display indices will be copied into the supplied array
+ * 
+ * @param number_of_indices the pointer to the returned size of the index array
+ * @param indices the pointer to the returned array of display indices
+ * 
+ * @return FALSE if number_of_indices is null, TRUE otherwise
+ * 
+ * @see Controller::GetDisplays
+ */
 extern "C" INTEROP_EXPORT bool get_displays(int* number_of_indices, unsigned long* indices);
 
-// mlc: call twice -- first set device_name = nullptr, it will return the other params.
-// Then alloc the device_name array on the client side with the apropos size and call again with that pointer.
+/**
+ * @brief returns the inverted views toggle for the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param invview the pointer to the returned inverted views toggle. 0=FALSE, 1=TRUE
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see get_calibration
+ * @see Controller::GetInvView
+ */
+extern "C" INTEROP_EXPORT bool get_invview(WINDOW_HANDLE wnd, int* invview);
+
+/**
+ * @brief returns the red index for the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param ri the pointer to the returned red index value (0 or 2)
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see get_calibration
+ * @see Controller::GetRi
+ */
+extern "C" INTEROP_EXPORT bool get_ri(WINDOW_HANDLE wnd, int* ri);
+
+/**
+ * @brief returns the blue index for the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param bi the pointer to the returned blue index value (0 or 2)
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see get_calibration
+ * @see Controller::GetBi
+ */
+extern "C" INTEROP_EXPORT bool get_bi(WINDOW_HANDLE wnd, int *bi);
+
+/**
+ * @brief returns the tilt for the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param tilt the pointer to the returned tilt value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see get_calibration
+ * @see Controller::GetTilt
+ */
+extern "C" INTEROP_EXPORT bool get_tilt(WINDOW_HANDLE wnd, float* tilt);
+
+/**
+ * @brief returns the aspect ratio of the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param displayaspect the pointer to the returned aspect ratio
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see get_calibration
+ * @see Controller::GetDisplayAspect
+ */
+extern "C" INTEROP_EXPORT bool get_displayaspect(WINDOW_HANDLE wnd, float* displayaspect);
+
+/**
+ * @brief returns the fringe value of the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param fringe the pointer to the returned fringe value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see get_calibration
+ * @see Controller::GetFringe
+ */
+extern "C" INTEROP_EXPORT bool get_fringe(WINDOW_HANDLE wnd, float* fringe);
+
+/**
+ * @brief returns the subpixel size of the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param subp the pointer to the returned sub pixel size value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see Controller::GetSubp
+ */
+extern "C" INTEROP_EXPORT bool get_subp(WINDOW_HANDLE wnd, float* subp);
+
+/**
+ * @brief returns the pitch of the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param pitch the pointer to the returned pitch value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see get_calibration
+ * @see Controller::GetPitch
+ */
+extern "C" INTEROP_EXPORT bool get_pitch(WINDOW_HANDLE wnd, float* pitch);
+
+/**
+ * @brief returns the center of the display used with the given window
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param center the pointer to the returned center value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see get_calibration
+ * @see Controller::GetCenter
+ */
+extern "C" INTEROP_EXPORT bool get_center(WINDOW_HANDLE wnd, float* center);
+
+/**
+ * @brief returns the device name for the given display index
+ * 
+ * The caller is responsible for allocating the device_name C-string buffer. 
+ * To get the buffer size, this function should be called twice. When called
+ * with the device_name parameter set to nullptr, it will return the size of 
+ * the device_name string. When called with the device_name parameter set to 
+ * a buffer pointer, the device name will be copied into the supplied buffer
+ * 
+ * The size of the buffer is returned as a count of wide string characters.
+ * In practice, wchar is 32 bits on Linux and MacOS but 16 bits on Windows. 
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param number_of_device_name_wchars the pointer to the returned size of the C-string buffer
+ * @param device_name the pointer to the returned size device name C-string buffer
+ * 
+ * @return FALSE if number_of_device_name_wchars is null, TRUE otherwise
+ * 
+ * @see Controller::GetDeviceNameForDisplay
+ * @see get_device_name
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_device_name_for_display(unsigned long display_index, int* number_of_device_name_wchars, wchar_t* device_name);
 
-// mlc: call twice -- first set serial = nullptr, it will return the other params.
-// Then alloc the serial array on the client side with the apropos size and call again with that pointer.
+/**
+ * @brief returns the device serial number for the given display index
+ * 
+ * The caller is responsible for allocating the serial number C-string buffer. 
+ * To get the buffer size, this function should be called twice. When called
+ * with the serial parameter set to nullptr, it will return the size of 
+ * the serial string. When called with the serial parameter set to 
+ * a buffer pointer, the device serial will be copied into the supplied buffer
+ * 
+ * The size of the buffer is returned as a count of wide string characters.
+ * In practice, wchar is 32 bits on Linux and MacOS but 16 bits on Windows. 
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param number_of_serial_wchars the pointer to the returned size of the C-string buffer
+ * @param serial the pointer to the returned size device serial C-string buffer
+ * 
+ * @return FALSE if number_of_serial_wchars is null, TRUE otherwise
+ * 
+ * @see Controller::GetDeviceSerialForDisplay
+ * @see get_device_serial
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_device_serial_for_display(unsigned long display_index, int* number_of_serial_wchars, wchar_t* serial);
 
+/**
+ * @brief returns with size dimensions of the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param width the pointer to the returned width value
+ * @param height the pointer to the returned height value
+ * 
+ * @return width and height for the input window
+ * 
+ * @see Controller::GetDimensionsForDisplay
+ * @see get_window_dimensions
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_dimensions_for_display(unsigned long display_index, unsigned long* width, unsigned long* height);
+
+/**
+ * @brief returns with position of the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param x the pointer to the returned x coordinate value
+ * @param y the pointer to the returned y coordinate value
+ * 
+ * @return the x and y coordinates for the input window
+ * 
+ * @see Controller::GetWindowPositionForDisplay
+ * @see get_window_position
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_window_position_for_display(unsigned long display_index, long* x, long* y);
 
+/**
+ * @brief returns the type of display product for the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param hw_enum the display enum value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see Controller::GetDeviceTypeForDisplay
+ * @see get_device_type
+ */
 extern "C" INTEROP_EXPORT bool get_device_type_for_display(unsigned long display_index, int* hw_enum);
 
-// mlc: call twice -- first set cells = nullptr, it will return the other params.
-// Then alloc the SubpixelCell array on the client side with the apropos size and call again with that pointer.
+/** 
+ * @brief returns the calibration values for the given display index
+ * 
+ * The calibration parameters assocaited with the input display will be returned 
+ * as parameter values. If the cells pointer is null, it will be ignored. Any 
+ * other parameters with null values will be considered invalid.
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param center the pointer to the returned center value
+ * @param pitch the pointer to the returned pitch value
+ * @param slope the pointer to the returned slope value
+ * @param width the pointer to the returned width value
+ * @param height the pointer to the returned height value
+ * @param dpi the pointer to the returned DPI value
+ * @param flip_x the pointer to the returned horizontal flip toggle. 0=FALSE, 1=TRUE
+ * @param invView the pointer to the returned inverted views toggle. 0=FALSE, 1=TRUE
+ * @param viewcone the pointer to the returned viewcone value
+ * @param fringe the pointer to the returned fringe value
+ * @param cell_pattern_mode the pointer to the returned cell pattern mode
+ * @param number_of_cells the pointer to the returned cell count
+ * @param cells the pointer to the returned cell pattern struct
+ * 
+ * @return FALSE for invalid input parameters, TRUE otherwise
+ * 
+ * @see Controller::GetCalibrationForDisplay
+ * @see get_calibration
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_calibration_for_display(unsigned long display_index, 
 	                                           float* center, 
 	                                           float *pitch, 
@@ -232,1551 +777,186 @@ extern "C" INTEROP_EXPORT bool get_calibration_for_display(unsigned long display
 											   int* number_of_cells,
 	                                           CalibrationSubpixelCell* cells);
 
+/**
+ * @brief returns the inverted views toggle for the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param invview the pointer to the returned inverted views toggle. 0=FALSE, 1=TRUE
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see Controller::GetInvViewForDisplay
+ * @see get_invview
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_invview_for_display(unsigned long display_index, int* invview);
+
+/**
+ * @brief returns the red index for the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param ri the pointer to the returned red index value (0 or 2)
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see Controller::GetRiForDisplay
+ * @see get_ri
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_ri_for_display(unsigned long display_index, int* ri);
+
+/**
+ * @brief returns the blue index for the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param bi the pointer to the returned blue index value (0 or 2)
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see Controller::GetBiForDisplay
+ * @see get_bi
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_bi_for_display(unsigned long display_index, int *bi);
+
+/**
+ * @brief returns the tilt for the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param tilt the pointer to the returned tilt value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see Controller::GetTiltForDisplay
+ * @see get_tilt
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_tilt_for_display(unsigned long display_index, float* tilt);
+
+/**
+ * @brief returns the aspect ratio of the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param displayaspect the pointer to the returned aspect ratio
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see Controller::GetDisplayAspectForDisplay
+ * @see get_displayaspect
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_displayaspect_for_display(unsigned long display_index, float* displayaspect);
+
+/**
+ * @brief returns the fringe value of the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param fringe the pointer to the returned fringe value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see Controller::GetFringeForDisplay
+ * @see get_fringe
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_fringe_for_display(unsigned long display_index, float* fringe);
+
+/**
+ * @brief returns the subpixel size of the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param subp the pointer to the returned sub pixel size value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see Controller::GetSubpForDisplay
+ * @see get_subp
+ */
 extern "C" INTEROP_EXPORT bool get_subp_for_display(unsigned long display_index, float* subp);
+
+/**
+ * @brief returns the viewcone value for the display product with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param viewcone the pointer to the returned viewcone value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @see Controller::GetViewConeForDisplay
+ * @see get_viewcone
+ */
 extern "C" INTEROP_EXPORT bool get_viewcone_for_display(unsigned long display_index, float* viewcone);
+
+/**
+ * @brief returns the pitch of the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param pitch the pointer to the returned pitch value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see Controller::GetPitchForDisplay
+ * @see get_pitch
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_pitch_for_display(unsigned long display_index, float* pitch);
+
+/**
+ * @brief returns the center of the display used with the given display index
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param center the pointer to the returned center value
+ * 
+ * @return TRUE if successful, FALSE otherwise
+ * 
+ * @note this function is meant only to provide compatibility with HoloPlay Core SDK
+ * 
+ * @see Controller::GetCenterForDisplay
+ * @see get_center
+ * @see get_calibration_for_display
+ * @see get_displays
+ */
 extern "C" INTEROP_EXPORT bool get_center_for_display(unsigned long display_index, float* center);
+
+/**
+ * @brief returns the ideal quilt settings for the given display index
+ * 
+ * The ideal quilt settings are aset of heuristics defined by Looking Glass 
+ * for each display product.
+ * 
+ * @param display_index the index for the target Looking Glass display
+ * @param aspect the pointer to the returned aspect value
+ * @param quilt_width the pointer to the returned width value
+ * @param quilt_height the pointer to the returned height value
+ * @param quilt_columns the pointer to the returned quilt columns value
+ * @param quilt_rows the pointer to the returned quilt rows value
+ * 
+ * @return FALSE if number_of_serial_wchars is null, TRUE otherwise
+ * 
+ * @see Controller::GetDefaultQuiltSettingsForDisplay
+ * @see get_default_quilt_settings
+ */
 extern "C" INTEROP_EXPORT bool get_default_quilt_settings_for_display(unsigned long display_index, float* aspect, int* quilt_width, int* quilt_height, int* quilt_columns, int* quilt_rows);
-
-extern "C" INTEROP_EXPORT bool get_invview(WINDOW_HANDLE wnd, int* invview);
-extern "C" INTEROP_EXPORT bool get_ri(WINDOW_HANDLE wnd, int* ri);
-extern "C" INTEROP_EXPORT bool get_bi(WINDOW_HANDLE wnd, int *bi);
-extern "C" INTEROP_EXPORT bool get_tilt(WINDOW_HANDLE wnd, float* tilt);
-extern "C" INTEROP_EXPORT bool get_displayaspect(WINDOW_HANDLE wnd, float* displayaspect);
-extern "C" INTEROP_EXPORT bool get_fringe(WINDOW_HANDLE wnd, float* fringe);
-extern "C" INTEROP_EXPORT bool get_subp(WINDOW_HANDLE wnd, float* subp);
-extern "C" INTEROP_EXPORT bool get_pitch(WINDOW_HANDLE wnd, float* pitch);
-extern "C" INTEROP_EXPORT bool get_center(WINDOW_HANDLE wnd, float* center);
-
-// mlc: the controller class provides a way to get to bridge in "SDK Mode" without copying dependencies.
-// When you initialize, if you pass in no version: it will default to looking for whichever version
-// of Bridge this header was compiled with.
-
-// You may also pass in a specific version, if that version is installed it will be used.
-// Otherwise it will attempt to locate the closest matching version.
-// You may also leave the version blank and pass in a full path to the folder where bridge is installed.
-class Controller
-{
-protected:
-    class DynamicLibraryLoader
-    {
-    private:
-        std::map<std::string, void*> functionCache;
-
-    public:
-#ifdef _WIN32
-        template<typename T>
-        T LoadFunction(const std::wstring& path, const std::string& functionName)
-        {
-            auto key = std::string(path.begin(), path.end()) + functionName;
-            auto it = functionCache.find(key);
-            if (it != functionCache.end())
-            {
-                return reinterpret_cast<T>(it->second);
-            }
-
-            HMODULE handle = LoadLibraryW(path.c_str());
-            if (!handle)
-            {
-                return nullptr;
-            }
-
-            FARPROC funcPtr = GetProcAddress(handle, functionName.c_str());
-            if (!funcPtr)
-            {
-                return nullptr;
-            }
-
-            functionCache[key] = funcPtr;
-            return reinterpret_cast<T>(funcPtr);
-        }
-#else
-        template<typename T>
-        T LoadFunction(const std::string& path, const std::string& functionName)
-        {
-            auto key = path + functionName;
-            auto it = functionCache.find(key);
-            if (it != functionCache.end())
-            {
-                return reinterpret_cast<T>(it->second);
-            }
-
-            void* handle = dlopen(path.c_str(), RTLD_LAZY);
-            if (!handle)
-            {
-                return nullptr;
-            }
-
-            void* funcPtr = dlsym(handle, functionName.c_str());
-            if (!funcPtr)
-            {
-                return nullptr;
-            }
-
-            functionCache[key] = funcPtr;
-            return reinterpret_cast<T>(funcPtr);
-        }
-#endif
-    };
-
-    DynamicLibraryLoader _DynamicLibraryLoader;
-
-#ifdef _WIN32
-    std::wstring _libraryPath;
-#else
-    std::string _libraryPath;
-#endif
-
-public:
-#ifndef _WIN32
-    std::string GetHomeDirectory()
-    {
-    #ifdef __APPLE__
-        struct passwd* pw = getpwuid(getuid());
-        return pw ? pw->pw_dir : "";
-    #else
-        const char* home = getenv("HOME");
-        return home ? home : "";
-    #endif
-    }
-#endif
-
-#ifdef _WIN32
-    std::wstring SettingsPath()
-#else
-    std::string SettingsPath()
-#endif
-    {
-        std::filesystem::path ret;
-
-#ifdef _WIN32
-        PWSTR pPath = NULL;
-        if (SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &pPath) == S_OK)
-        {
-            ret = std::filesystem::path(pPath) / L"Looking Glass" / L"Bridge";
-            CoTaskMemFree(pPath);
-        }
-#elif __APPLE__
-        std::string home = GetHomeDirectory();
-        ret = std::filesystem::path(home) / "Library" / "Application Support" / "Looking Glass" / "Bridge";
-#else
-        std::string home = GetHomeDirectory();
-        ret = std::filesystem::path(home) / ".lgf" / "Bridge";
-#endif
-
-        ret /= "settings.json";
-
-#ifdef _WIN32
-    return ret.wstring();
-#else
-    return ret.string();
-#endif    
-    }
-
-#ifdef _WIN32
-std::wstring BridgeInstallLocation(const std::wstring& requestedVersion)
-    {
-        std::wstring settingsPath = SettingsPath();
-        std::wifstream settingsFile(settingsPath);
-        std::wstring ret = L"";
-        if (settingsFile)
-        {
-            // Read file content into a wstring
-            std::wstringstream buffer;
-            buffer << settingsFile.rdbuf();
-            std::wstring settingsContent = buffer.str();
-
-            // Locate "install_locations" and the subsequent array
-            size_t start = settingsContent.find(L"\"install_locations\":");
-            if (start != std::wstring::npos)
-            {
-                start = settingsContent.find(L"[", start);
-                if (start != std::wstring::npos)
-                {
-                    size_t end = settingsContent.find(L"]", start);
-                    if (end != std::wstring::npos)
-                    {
-                        std::wstring arrayContent = settingsContent.substr(start + 1, end - start - 1);
-                        std::vector<std::wstring> tokens;
-                        size_t objStart = 0, objEnd = 0;
-
-                        while ((objStart = arrayContent.find(L"{", objEnd)) != std::wstring::npos)
-                        {
-                            objEnd = arrayContent.find(L"}", objStart);
-                            if (objEnd == std::wstring::npos) break;
-
-                            std::wstring entry = arrayContent.substr(objStart, objEnd - objStart + 1);
-                            tokens.push_back(entry);
-
-                            objEnd++;
-                        }
-
-                        // Parse each token to build a map of versions to paths
-                        std::map<std::wstring, std::wstring> versionPaths;
-                        for (const std::wstring& token : tokens)
-                        {
-                            size_t versionKey = token.find(L"\"version\":");
-                            size_t pathKey = token.find(L"\"path\":");
-                            if (versionKey != std::wstring::npos && pathKey != std::wstring::npos)
-                            {
-                                size_t versionStart = token.find(L"\"", versionKey + 10) + 1;
-                                size_t versionEnd = token.find(L"\"", versionStart);
-                                std::wstring version = token.substr(versionStart, versionEnd - versionStart);
-
-                                size_t pathStart = token.find(L"\"", pathKey + 7) + 1;
-                                size_t pathEnd = token.find(L"\"", pathStart);
-                                std::wstring path = token.substr(pathStart, pathEnd - pathStart);
-
-                                versionPaths[version] = path;
-                            }
-                        }
-
-                        // First, check if the requested version exists
-                        if (versionPaths.find(requestedVersion) != versionPaths.end())
-                        {
-                            return versionPaths[requestedVersion];
-                        }
-
-                        // Find the highest version with the same major version number
-                        std::wstring majorVersionOfRequested = requestedVersion.substr(0, requestedVersion.find(L'.'));
-                        std::wstring highestVersion;
-                        for (const auto& vp : versionPaths)
-                        {
-                            if (vp.first.substr(0, vp.first.find(L'.')) == majorVersionOfRequested)
-                            {
-                                if (highestVersion.empty() || vp.first > highestVersion)
-                                {
-                                    highestVersion = vp.first;
-                                }
-                            }
-                        }
-
-                        if (!highestVersion.empty())
-                        {
-                            return versionPaths[highestVersion];
-                        }
-                    }
-                }
-            }
-        }
-        return ret;  // Return an empty string if no matching version found
-    }
-#else
-    std::string BridgeInstallLocation(const std::string& requestedVersion)
-    {
-        std::string settingsPath = SettingsPath();
-        std::ifstream settingsFile(settingsPath);
-        std::string ret = "";
-        if (settingsFile)
-        {
-            // Read file content into a string
-            std::stringstream buffer;
-            buffer << settingsFile.rdbuf();
-            std::string settingsContent = buffer.str();
-
-            // Locate "install_locations" and the subsequent array
-            size_t start = settingsContent.find("\"install_locations\":");
-            if (start != std::string::npos)
-            {
-                start = settingsContent.find("[", start);
-                if (start != std::string::npos)
-                {
-                    size_t end = settingsContent.find("]", start);
-                    if (end != std::string::npos)
-                    {
-                        std::string arrayContent = settingsContent.substr(start + 1, end - start - 1);
-                        std::vector<std::string> tokens;
-                        size_t objStart = 0, objEnd = 0;
-
-                        while ((objStart = arrayContent.find("{", objEnd)) != std::string::npos)
-                        {
-                            objEnd = arrayContent.find("}", objStart);
-                            if (objEnd == std::string::npos) break;
-
-                            std::string entry = arrayContent.substr(objStart, objEnd - objStart + 1);
-                            tokens.push_back(entry);
-
-                            objEnd++;
-                        }
-
-                        // Parse each token to build a map of versions to paths
-                        std::map<std::string, std::string> versionPaths;
-                        for (const std::string& token : tokens)
-                        {
-                            size_t versionKey = token.find("\"version\":");
-                            size_t pathKey = token.find("\"path\":");
-                            if (versionKey != std::string::npos && pathKey != std::string::npos)
-                            {
-                                size_t versionStart = token.find("\"", versionKey + 10) + 1;
-                                size_t versionEnd = token.find("\"", versionStart);
-                                std::string version = token.substr(versionStart, versionEnd - versionStart);
-
-                                size_t pathStart = token.find("\"", pathKey + 7) + 1;
-                                size_t pathEnd = token.find("\"", pathStart);
-                                std::string path = token.substr(pathStart, pathEnd - pathStart);
-
-                                versionPaths[version] = path;
-                            }
-                        }
-
-                        // First, check if the requested version exists
-                        if (versionPaths.find(requestedVersion) != versionPaths.end())
-                        {
-                            return versionPaths[requestedVersion];
-                        }
-
-                        // Find the highest version with the same major version number
-                        std::string majorVersionOfRequested = requestedVersion.substr(0, requestedVersion.find('.'));
-                        std::string highestVersion;
-                        for (const auto& vp : versionPaths)
-                        {
-                            if (vp.first.substr(0, vp.first.find('.')) == majorVersionOfRequested)
-                            {
-                                if (highestVersion.empty() || vp.first > highestVersion)
-                                {
-                                    highestVersion = vp.first;
-                                }
-                            }
-                        }
-
-                        if (!highestVersion.empty())
-                        {
-                            return versionPaths[highestVersion];
-                        }
-                    }
-                }
-            }
-        }
-        return ret;  // Return an empty string if no matching version found
-    }
-#endif
-   
-#ifdef _WIN32
-    bool Initialize(const std::wstring& app_name, const std::wstring& desired_bridge_version = ::BridgeVersion)
-#else
-    bool Initialize(const std::string& app_name, const std::string& desired_bridge_version = ::BridgeVersion)
-#endif
-    {
-        auto installPath = BridgeInstallLocation(desired_bridge_version);
-        return InitializeWithPath(app_name, installPath);
-    }
-
-#ifdef _WIN32
-    bool InitializeWithPath(const std::wstring& app_name, const std::wstring& manual_install_location)
-#else
-    bool InitializeWithPath(const std::string& app_name, const std::string& manual_install_location)
-#endif
-    {
-        if (manual_install_location.empty())
-        {
-            return false;
-        }
-
-#ifdef __APPLE__
-        _libraryPath = (std::filesystem::path(manual_install_location) / "libbridge_inproc.dylib").string();
-        try
-        {
-            auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(const char*)>(_libraryPath, "initialize_bridge");
-        
-            if (!func)
-            {
-                return false;
-            }
-
-            return func(app_name.c_str());
-        }
-        catch (const std::exception& ex)
-        {
-            std::cerr << "Error: " << ex.what() << std::endl;
-            return false;
-        }
-#elif _WIN32
-        SetDllDirectoryW(manual_install_location.c_str());
-        _libraryPath = (std::filesystem::path(manual_install_location) / "bridge_inproc.dll").wstring();
-        try
-        {
-            auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(const wchar_t*)>(_libraryPath, "initialize_bridge");
-
-            if (!func)
-            {
-                return false;
-            }
-
-            return func(app_name.c_str());
-        }
-        catch (const std::exception& ex)
-        {
-            std::cerr << "Error: " << ex.what() << std::endl;
-            return false;
-        }
-#else
-        // todo: linux
-#endif
-        return false;
-    }
-
-    bool Uninitialize()
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)()>(_libraryPath, "uninitialize_bridge");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func();
-    }
-
-    bool GetBridgeVersion(unsigned long* major, unsigned long* minor, unsigned long* build, int* number_of_postfix_wchars, wchar_t* postfix) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long*, unsigned long*, unsigned long*, int*, wchar_t*)>(_libraryPath, "get_bridge_version");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(major, minor, build, number_of_postfix_wchars, postfix);
-    }
-
-    bool InstanceWindowGL(WINDOW_HANDLE* wnd, unsigned long display_index = static_cast<unsigned long>(FIRST_LOOKING_GLASS_DEVICE)) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE*, unsigned long)>(_libraryPath, "instance_window_gl");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, display_index);
-    }
-
-    bool InstanceOffscreenWindowGL(WINDOW_HANDLE* wnd, unsigned long display_index = static_cast<unsigned long>(FIRST_LOOKING_GLASS_DEVICE)) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE*, unsigned long)>(_libraryPath, "instance_offscreen_window_gl");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, display_index);
-    }
-
-    bool GetOffscreenWindowTextureGL(WINDOW_HANDLE wnd, unsigned long long* texture, PixelFormats* format, unsigned long* width, unsigned long* height)
-    {
-        using FuncType = bool(*)(WINDOW_HANDLE, unsigned long long*, PixelFormats*, unsigned long*, unsigned long*);
-        auto func = _DynamicLibraryLoader.LoadFunction<FuncType>(_libraryPath, "get_offscreen_window_texture_gl");
-    
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, texture, format, width, height);
-    }
-
-    bool QuiltifyRGBD(WINDOW_HANDLE wnd, unsigned long columns, unsigned long rows, unsigned long views, float aspect, float zoom, float cam_dist, float fov, float crop_pos_x, float crop_pos_y, unsigned long depth_inversion, unsigned long chroma_depth, unsigned long depth_loc, float depthiness, float depth_cutoff, float focus, const wchar_t* input_path, const wchar_t* output_path) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long, unsigned long, unsigned long, float, float, float, float, float, float, unsigned long, unsigned long, unsigned long, float, float, float, const wchar_t*, const wchar_t*)>(_libraryPath, "quiltify_rgbd");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, columns, rows, views, aspect, zoom, cam_dist, fov, crop_pos_x, crop_pos_y, depth_inversion, chroma_depth, depth_loc, depthiness, depth_cutoff, focus, input_path, output_path);
-    }
-
-    bool GetWindowDimensions(WINDOW_HANDLE wnd, unsigned long* width, unsigned long* height) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long*, unsigned long*)>(_libraryPath, "get_window_dimensions");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, width, height);
-    }
-
-    bool GetMaxTextureSize(WINDOW_HANDLE wnd, unsigned long* size) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long*)>(_libraryPath, "get_max_texture_size");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, size);
-    }
-
-    bool SetInteropQuiltTextureGL(WINDOW_HANDLE wnd, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height, unsigned long vx, unsigned long vy, float aspect, float zoom) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long long, PixelFormats, unsigned long, unsigned long, unsigned long, unsigned long, float, float)>(_libraryPath, "set_interop_quilt_texture_gl");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, texture, format, width, height, vx, vy, aspect, zoom);
-    }
-
-    bool DrawInteropQuiltTextureGL(WINDOW_HANDLE wnd, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height, unsigned long vx, unsigned long vy, float aspect, float zoom) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long long, PixelFormats, unsigned long, unsigned long, unsigned long, unsigned long, float, float)>(_libraryPath, "draw_interop_quilt_texture_gl");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, texture, format, width, height, vx, vy, aspect, zoom);
-    }
-
-    bool ShowWindow(WINDOW_HANDLE wnd, bool flag) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, bool)>(_libraryPath, "show_window");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, flag);
-    }
-
-    // File save functions differ by platform due to string type differences
-    #ifdef WIN32
-    bool SaveTextureToFileGL(WINDOW_HANDLE wnd, wchar_t* filename, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, wchar_t*, unsigned long long, PixelFormats, unsigned long, unsigned long)>(_libraryPath, "save_texture_to_file_gl");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, filename, texture, format, width, height);
-    }
-
-    bool SaveImageToFile(WINDOW_HANDLE wnd, wchar_t* filename, void* image, PixelFormats format, unsigned long width, unsigned long height) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, wchar_t*, void*, PixelFormats, unsigned long, unsigned long)>(_libraryPath, "save_image_to_file");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, filename, image, format, width, height);
-    }
-    #else
-    bool SaveTextureToFileGL(WINDOW_HANDLE wnd, char* filename, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, char*, unsigned long long, PixelFormats, unsigned long, unsigned long)>(_libraryPath, "save_texture_to_file_gl");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, filename, texture, format, width, height);
-    }
-
-    bool SaveImageToFile(WINDOW_HANDLE wnd, char* filename, void* image, PixelFormats format, unsigned long width, unsigned long height) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, char*, void*, PixelFormats, unsigned long, unsigned long)>(_libraryPath, "save_image_to_file");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, filename, image, format, width, height);
-    }
-    #endif
-
-    bool DeviceFromResourceDX(IUnknown * dx_resource, IUnknown **dx_device) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(IUnknown*, IUnknown**)>(_libraryPath, "device_from_resource_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(dx_resource, dx_device);
-    }
-
-    bool ReleaseDeviceDX(IUnknown * dx_device) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(IUnknown*)>(_libraryPath, "release_device_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(dx_device);
-    }
-
-    bool InstanceWindowDX(IUnknown *dx_device, WINDOW_HANDLE *wnd, unsigned long display_index = static_cast<unsigned long>(FIRST_LOOKING_GLASS_DEVICE)) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(IUnknown*, WINDOW_HANDLE*, unsigned long)>(_libraryPath, "instance_window_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(dx_device, wnd, display_index);
-    }
-
-    bool RegisterTextureDX(WINDOW_HANDLE wnd, IUnknown *dx_texture) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, IUnknown*)>(_libraryPath, "register_texture_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, dx_texture);
-    }
-
-    bool UnregisterTextureDX(WINDOW_HANDLE wnd, IUnknown *dx_texture) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, IUnknown*)>(_libraryPath, "unregister_texture_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, dx_texture);
-    }
-
-    bool SaveTextureToFileDX(WINDOW_HANDLE wnd, wchar_t* filename, IUnknown * dx_texture) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, wchar_t*, IUnknown*)>(_libraryPath, "save_texture_to_file_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, filename, dx_texture);
-    }
-
-    bool DrawInteropQuiltTextureDX(WINDOW_HANDLE wnd, IUnknown * dx_texture, unsigned long vx, unsigned long vy, float aspect, float zoom) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, IUnknown*, unsigned long, unsigned long, float, float)>(_libraryPath, "draw_interop_quilt_texture_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, dx_texture, vx, vy, aspect, zoom);
-    }
-
-    bool CreateTextureDX(WINDOW_HANDLE wnd, unsigned long width, unsigned long height, IUnknown **dx_texture) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long, unsigned long, IUnknown**)>(_libraryPath, "create_texture_dx");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, width, height, dx_texture);
-    }
-
-    bool ReleaseTextureDX(WINDOW_HANDLE wnd, IUnknown *dx_texture) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, IUnknown*)>(_libraryPath, "release_texture_dx");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, dx_texture);
-    }
-
-    bool CopyTextureDX(WINDOW_HANDLE wnd, IUnknown *src, IUnknown *dest) 
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, IUnknown*, IUnknown*)>(_libraryPath, "copy_texture_dx");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, src, dest);
-    }
-
-    bool GetOffscreenWindowTextureDX(WINDOW_HANDLE wnd, IUnknown** texture)
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, IUnknown**)>(_libraryPath, "get_offscreen_window_texture_dx");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, texture);
-    }
-
-    bool InstanceOffscreenWindowDX(IUnknown* dx_device, WINDOW_HANDLE* wnd, unsigned long display_index = static_cast<unsigned long>(FIRST_LOOKING_GLASS_DEVICE))
-    {
-#ifndef _WIN32
-        return false;
-#endif
-        // Load the function from the dynamic library
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(IUnknown*, WINDOW_HANDLE*, unsigned long)>(_libraryPath, "instance_offscreen_window_dx");
-    
-        // Check if the function was loaded successfully
-        if (!func)
-        {
-            return false;
-        }
-
-        // Call the function
-        return func(dx_device, wnd, display_index);
-    }
-
-
-    bool InstanceWindowMetal(void *metal_device, WINDOW_HANDLE *wnd, unsigned long display_index = static_cast<unsigned long>(FIRST_LOOKING_GLASS_DEVICE)) 
-    {
-#ifndef __APPLE__
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(void*, WINDOW_HANDLE*, unsigned long)>(_libraryPath, "instance_window_metal");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(metal_device, wnd, display_index);
-    }
-
-    bool CreateMetalTextureWithIOSurface(WINDOW_HANDLE wnd, void* descriptor, void** texture) 
-    {
-#ifndef __APPLE__
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, void*, void**)>(_libraryPath, "create_metal_texture_with_iosurface");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, descriptor, texture);
-    }
-
-    bool CopyMetalTexture(WINDOW_HANDLE wnd, void* src, void* dest) 
-    {
-#ifndef __APPLE__
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, void*, void*)>(_libraryPath, "copy_metal_texture");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, src, dest);
-    }
-
-    bool ReleaseMetalTexture(WINDOW_HANDLE wnd, void* texture) 
-    {
-#ifndef __APPLE__
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, void*)>(_libraryPath, "release_metal_texture");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, texture);
-    }
-
-    bool SaveMetalTextureToFile(WINDOW_HANDLE wnd, char* filename, void* texture, PixelFormats format, unsigned long width, unsigned long height) 
-    {
-#ifndef __APPLE__
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, char*, void*, PixelFormats, unsigned long, unsigned long)>(_libraryPath, "save_metal_texture_to_file");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, filename, texture, format, width, height);
-    }
-
-    bool DrawInteropQuiltTextureMetal(WINDOW_HANDLE wnd, void* texture, unsigned long vx, unsigned long vy, float aspect, float zoom) 
-    {
-#ifndef __APPLE__
-        return false;
-#endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, void*, unsigned long, unsigned long, float, float)>(_libraryPath, "draw_interop_quilt_texture_metal");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, texture, vx, vy, aspect, zoom);
-    }
-
-    bool InstanceOffscreenWindowMetal(void *metal_device, WINDOW_HANDLE *wnd, unsigned long display_index = static_cast<unsigned long>(FIRST_LOOKING_GLASS_DEVICE)) 
-    {
-    #ifndef __APPLE__
-        return false;
-    #endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(void*, WINDOW_HANDLE*, unsigned long)>(_libraryPath, "instance_offscreen_window_metal");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(metal_device, wnd, display_index);
-    }
-
-    bool GetOffscreenWindowTextureMetal(WINDOW_HANDLE wnd, void** texture) 
-    {
-    #ifndef __APPLE__
-        return false;
-    #endif
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, void**)>(_libraryPath, "get_offscreen_window_texture_metal");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, texture);
-    }
-
-    bool GetCalibration(WINDOW_HANDLE wnd, 
-                    float* center, 
-                    float* pitch, 
-                    float* slope, 
-                    int* width, 
-                    int* height, 
-                    float* dpi, 
-                    float* flip_x,
-                    int* invView,
-                    float* viewcone,
-                    float* fringe,
-                    int* cell_pattern_mode,
-                    int* number_of_cells,
-                    CalibrationSubpixelCell* cells)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*, float*, float*, int*, int*, float*, float*, int*, float*, float*, int*, int*, CalibrationSubpixelCell*)>(_libraryPath, "get_calibration");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, center, pitch, slope, width, height, dpi, flip_x, invView, viewcone, fringe, cell_pattern_mode, number_of_cells, cells);
-    }
-
-    bool GetDeviceName(WINDOW_HANDLE wnd, int* number_of_device_name_wchars, wchar_t* device_name) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, int*, wchar_t*)>(_libraryPath, "get_device_name");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, number_of_device_name_wchars, device_name);
-    }
-
-    bool GetDeviceSerial(WINDOW_HANDLE wnd, int* number_of_serial_wchars, wchar_t* serial) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, int*, wchar_t*)>(_libraryPath, "get_device_serial");
-        
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, number_of_serial_wchars, serial);
-    }
-
-    bool GetDefaultQuiltSettings(WINDOW_HANDLE wnd, float* aspect, int* quilt_width, int* quilt_height, int* quilt_columns, int* quilt_rows) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*, int*, int*, int*, int*)>(_libraryPath, "get_default_quilt_settings");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, aspect, quilt_width, quilt_height, quilt_columns, quilt_rows);
-    }
-
-    bool GetDisplays(int* number_of_indices, unsigned long* indices) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(int*, unsigned long*)>(_libraryPath, "get_displays");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(number_of_indices, indices);
-    }
-
-    bool GetDeviceNameForDisplay(unsigned long display_index, int* number_of_device_name_wchars, wchar_t* device_name) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, int*, wchar_t*)>(_libraryPath, "get_device_name_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, number_of_device_name_wchars, device_name);
-    }
-
-    bool GetDeviceSerialForDisplay(unsigned long display_index, int* number_of_serial_wchars, wchar_t* serial) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, int*, wchar_t*)>(_libraryPath, "get_device_serial_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, number_of_serial_wchars, serial);
-    }
-
-    bool GetDimensionsForDisplay(unsigned long display_index, unsigned long* width, unsigned long* height) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, unsigned long*, unsigned long*)>(_libraryPath, "get_dimensions_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, width, height);
-    }
-
-    bool GetDeviceTypeForDisplay(unsigned long display_index, int* hw_enum) 
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, int*)>(_libraryPath, "get_device_type_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, hw_enum);
-    }
-
-    bool GetCalibrationForDisplay(unsigned long display_index, 
-                              float* center, 
-                              float* pitch, 
-                              float* slope, 
-                              int* width, 
-                              int* height, 
-                              float* dpi, 
-                              float* flip_x,
-                              int* invView,
-                              float* viewcone,
-                              float* fringe,
-                              int* cell_pattern_mode,
-                              int* number_of_cells,
-                              CalibrationSubpixelCell* cells)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*, float*, float*, int*, int*, float*, float*, int*, float*, float*, int*, int*, CalibrationSubpixelCell*)>(_libraryPath, "get_calibration_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, center, pitch, slope, width, height, dpi, flip_x, invView, viewcone, fringe, cell_pattern_mode, number_of_cells, cells);
-    }
-
-
-    bool GetInvViewForDisplay(unsigned long display_index, int* invview)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, int*)>(_libraryPath, "get_invview_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, invview);
-    }
-
-    bool GetRiForDisplay(unsigned long display_index, int* ri)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, int*)>(_libraryPath, "get_ri_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, ri);
-    }
-
-    bool GetBiForDisplay(unsigned long display_index, int* bi)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, int*)>(_libraryPath, "get_bi_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, bi);
-    }
-
-    bool GetTiltForDisplay(unsigned long display_index, float* tilt)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*)>(_libraryPath, "get_tilt_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, tilt);
-    }
-
-    bool GetDisplayAspectForDisplay(unsigned long display_index, float* displayaspect)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*)>(_libraryPath, "get_displayaspect_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, displayaspect);
-    }
-
-    bool GetFringeForDisplay(unsigned long display_index, float* fringe)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*)>(_libraryPath, "get_fringe_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, fringe);
-    }
-
-    bool GetSubpForDisplay(unsigned long display_index, float* subp)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*)>(_libraryPath, "get_subp_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, subp);
-    }
-
-    bool GetViewConeForDisplay(unsigned long display_index, float* viewcone)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*)>(_libraryPath, "get_viewcone_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, viewcone);
-    }
-
-    bool GetDisplayForWindow(WINDOW_HANDLE wnd, unsigned long* display_index)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long*)>(_libraryPath, "get_display_for_window");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, display_index);
-    }
-
-    bool GetDefaultQuiltSettingsForDisplay(unsigned long display_index, float* aspect, int* quilt_width, int* quilt_height, int* quilt_columns, int* quilt_rows)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*, int*, int*, int*, int*)>(_libraryPath, "get_default_quilt_settings_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, aspect, quilt_width, quilt_height, quilt_columns, quilt_rows);
-    }
-
-    bool GetDeviceType(WINDOW_HANDLE wnd, int* hw_enum)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, int*)>(_libraryPath, "get_device_type");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, hw_enum);
-    }
-
-    bool GetPitchForDisplay(unsigned long display_index, float* pitch)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*)>(_libraryPath, "get_pitch_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, pitch);
-    }
-
-    bool GetCenterForDisplay(unsigned long display_index, float* center)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, float*)>(_libraryPath, "get_center_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, center);
-    }
-
-    bool GetViewCone(WINDOW_HANDLE wnd, float* viewcone)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*)>(_libraryPath, "get_viewcone");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, viewcone);
-    }
-
-    bool GetInvView(WINDOW_HANDLE wnd, int* invview)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, int*)>(_libraryPath, "get_invview");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, invview);
-    }
-
-    bool GetRi(WINDOW_HANDLE wnd, int* ri)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, int*)>(_libraryPath, "get_ri");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, ri);
-    }
-
-    bool GetBi(WINDOW_HANDLE wnd, int* bi)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, int*)>(_libraryPath, "get_bi");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, bi);
-    }
-
-    bool GetTilt(WINDOW_HANDLE wnd, float* tilt)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*)>(_libraryPath, "get_tilt");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, tilt);
-    }
-
-    bool GetDisplayAspect(WINDOW_HANDLE wnd, float* displayaspect)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*)>(_libraryPath, "get_displayaspect");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, displayaspect);
-    }
-
-    bool GetFringe(WINDOW_HANDLE wnd, float* fringe)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*)>(_libraryPath, "get_fringe");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, fringe);
-    }
-
-    bool GetSubp(WINDOW_HANDLE wnd, float* subp)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*)>(_libraryPath, "get_subp");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, subp);
-    }
-
-    bool GetPitch(WINDOW_HANDLE wnd, float* pitch)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*)>(_libraryPath, "get_pitch");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, pitch);
-    }
-
-    bool GetCenter(WINDOW_HANDLE wnd, float* center)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, float*)>(_libraryPath, "get_center");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, center);
-    }
-
-    bool GetWindowPosition(WINDOW_HANDLE wnd, long* x, long* y)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, long*, long*)>(_libraryPath, "get_window_position");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(wnd, x, y);
-    }
-
-    bool GetWindowPositionForDisplay(unsigned long display_index, long* x, long* y)
-    {
-        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(unsigned long, long*, long*)>(_libraryPath, "get_window_position_for_display");
-
-        if (!func)
-        {
-            return false;
-        }
-
-        return func(display_index, x, y);
-    }
-};
 
 #ifdef _WIN32
 #pragma warning(default : 4244)
 #endif
-
-struct DisplayInfo {
-    unsigned long       display_id;
-    std::wstring        serial;
-    std::wstring        name;
-    Dim                 dimensions;
-    int                 hw_enum;
-    LKGCalibration      calibration;
-    int                 viewinv;
-    int                 ri;
-    int                 bi;
-    float               tilt;
-    float               aspect;
-    float               fringe;
-    float               subp;
-    float               viewcone;
-    float               center;
-    float               pitch;
-    DefaultQuitSettings default_quilt_settings;
-    WindowPos           window_position;
-};
-
-class BridgeData {
-public:
-    // Bridge-related data
-    WINDOW_HANDLE   wnd           = 0;
-    unsigned long   display_index = 0;
-    float           viewcone      = 0.0f;
-    int             device_type   = 0;
-    float           aspect        = 0.0f;
-    int             quilt_width   = 0;
-    int             quilt_height  = 0;
-    int             vx            = 0;
-    int             vy            = 0;
-    unsigned long   output_width  = 800;
-    unsigned long   output_height = 600;
-    int             view_width    = 0;
-    int             view_height   = 0;
-    int             invview       = 0;
-    int             ri            = 0;
-    int             bi            = 0;
-    float           tilt          = 0.0f;
-    float           displayaspect = 0.0f;
-    float           fringe        = 0.0f;
-    float           subp          = 0.0f;
-    float           pitch         = 0.0f;
-    float           center        = 0.0f;
-    WindowPos       window_position;
-    std::vector<DisplayInfo> display_infos;
-
-    // Static builder function
-    static BridgeData Create(Controller& controller, WINDOW_HANDLE wnd);
-
-private:
-    // Private constructor to enforce the use of the builder function
-    BridgeData() = default;
-
-  // Helper methods
-    void populateDisplayInfos(Controller& controller);
-    void populateSingleDisplayInfo(Controller& controller, unsigned long display_id, DisplayInfo& info);
-    void populateWindowValues(Controller& controller, WINDOW_HANDLE wnd);
-};
-
-inline BridgeData BridgeData::Create(Controller& controller, WINDOW_HANDLE wnd)
-{
-    BridgeData bridgeData;
-    bridgeData.wnd = wnd;
-
-    // Populate display infos for all connected displays
-    bridgeData.populateDisplayInfos(controller);
-
-    if (bridgeData.wnd != 0)
-    {
-        // The window handle is valid; proceed to populate data
-        controller.GetDisplayForWindow(bridgeData.wnd, &bridgeData.display_index);
-        bridgeData.populateWindowValues(controller, bridgeData.wnd);
-
-        // Compute view_width and view_height
-        bridgeData.view_width  = int(float(bridgeData.quilt_width) / float(bridgeData.vx));
-        bridgeData.view_height = int(float(bridgeData.quilt_height) / float(bridgeData.vy));
-    }
-    else
-    {
-        // Handle the case where the window handle is invalid
-        // You can set default values or handle it as needed
-    }
-
-    return bridgeData;
-}
-
-inline void BridgeData::populateDisplayInfos(Controller& controller)
-{
-    int display_count = 0;
-    controller.GetDisplays(&display_count, nullptr);
-
-    if (display_count > 0)
-    {
-        std::vector<unsigned long> display_ids(display_count);
-        controller.GetDisplays(&display_count, display_ids.data());
-
-        // Clear the display_infos vector in case it's not empty
-        display_infos.clear();
-
-        for (auto display_id : display_ids)
-        {
-            DisplayInfo info;
-            populateSingleDisplayInfo(controller, display_id, info);
-            display_infos.push_back(info);
-        }
-    }
-}
-
-// Helper method to populate a single DisplayInfo
-inline void BridgeData::populateSingleDisplayInfo(Controller& controller, unsigned long display_id, DisplayInfo& info)
-{
-    info.display_id = display_id;
-
-    // Get serial
-    int serial_count = 0;
-    controller.GetDeviceSerialForDisplay(display_id, &serial_count, nullptr);
-    if (serial_count > 0)
-    {
-        info.serial.resize(serial_count);
-        controller.GetDeviceSerialForDisplay(display_id, &serial_count, info.serial.data());
-    }
-
-    // Get name
-    int name_count = 0;
-    controller.GetDeviceNameForDisplay(display_id, &name_count, nullptr);
-    if (name_count > 0)
-    {
-        info.name.resize(name_count);
-        controller.GetDeviceNameForDisplay(display_id, &name_count, info.name.data());
-    }
-
-    // Get dimensions
-    controller.GetDimensionsForDisplay(display_id, &info.dimensions.width, &info.dimensions.height);
-
-    // Get hardware enum
-    controller.GetDeviceTypeForDisplay(display_id, &info.hw_enum);
-
-    // Get calibration
-    int number_of_cells = 0;
-    controller.GetCalibrationForDisplay(display_id,
-                                        &info.calibration.center,
-                                        &info.calibration.pitch,
-                                        &info.calibration.slope,
-                                        &info.calibration.width,
-                                        &info.calibration.height,
-                                        &info.calibration.dpi,
-                                        &info.calibration.flip_x,
-                                        &info.calibration.invView,
-                                        &info.calibration.viewcone,
-                                        &info.calibration.fringe,
-                                        &info.calibration.cell_pattern_mode,
-                                        &number_of_cells,
-                                        nullptr);
-    if (number_of_cells > 0)
-    {
-        info.calibration.cells.resize(number_of_cells);
-        controller.GetCalibrationForDisplay(display_id,
-                                            &info.calibration.center,
-                                            &info.calibration.pitch,
-                                            &info.calibration.slope,
-                                            &info.calibration.width,
-                                            &info.calibration.height,
-                                            &info.calibration.dpi,
-                                            &info.calibration.flip_x,
-                                            &info.calibration.invView,
-                                            &info.calibration.viewcone,
-                                            &info.calibration.fringe,
-                                            &info.calibration.cell_pattern_mode,
-                                            &number_of_cells,
-                                            info.calibration.cells.data());
-    }
-
-    // Get other parameters
-    controller.GetInvViewForDisplay(display_id, &info.viewinv);
-    controller.GetRiForDisplay(display_id, &info.ri);
-    controller.GetBiForDisplay(display_id, &info.bi);
-    controller.GetTiltForDisplay(display_id, &info.tilt);
-    controller.GetDisplayAspectForDisplay(display_id, &info.aspect);
-    controller.GetFringeForDisplay(display_id, &info.fringe);
-    controller.GetSubpForDisplay(display_id, &info.subp);
-    controller.GetViewConeForDisplay(display_id, &info.viewcone);
-    controller.GetCenterForDisplay(display_id, &info.center);
-    controller.GetPitchForDisplay(display_id, &info.pitch);
-
-    // Get default quilt settings
-    controller.GetDefaultQuiltSettingsForDisplay(display_id,
-                                                 &info.default_quilt_settings.aspect,
-                                                 &info.default_quilt_settings.quilt_width,
-                                                 &info.default_quilt_settings.quilt_height,
-                                                 &info.default_quilt_settings.quilt_columns,
-                                                 &info.default_quilt_settings.quilt_rows);
-
-    // Get window position
-    controller.GetWindowPositionForDisplay(display_id, &info.window_position.x, &info.window_position.y);
-}
-
-inline void BridgeData::populateWindowValues(Controller& controller, WINDOW_HANDLE wnd)
-{
-    controller.GetDeviceType(wnd, &device_type);
-    controller.GetDefaultQuiltSettings(wnd, &aspect, &quilt_width, &quilt_height, &vx, &vy);
-    controller.GetWindowDimensions(wnd, &output_width, &output_height);
-    controller.GetViewCone(wnd, &viewcone);
-    controller.GetInvView(wnd, &invview);
-    controller.GetRi(wnd, &ri);
-    controller.GetBi(wnd, &bi);
-    controller.GetTilt(wnd, &tilt);
-    controller.GetDisplayAspect(wnd, &displayaspect);
-    controller.GetFringe(wnd, &fringe);
-    controller.GetSubp(wnd, &subp);
-    controller.GetPitch(wnd, &pitch);
-    controller.GetCenter(wnd, &center);
-    controller.GetWindowPosition(wnd, &window_position.x, &window_position.y);
-}

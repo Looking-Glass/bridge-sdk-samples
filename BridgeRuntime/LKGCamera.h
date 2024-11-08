@@ -322,7 +322,7 @@ private:
 
         // Translation matrix (moving the object back by 3 units on Z-axis)
         Matrix4 translation = Matrix4::Identity();
-        // translation[14] = -3.0f;
+        translation[14] = -3.0f;
 
         // Final model matrix
         Matrix4 modelMatrix = rotation * translation;

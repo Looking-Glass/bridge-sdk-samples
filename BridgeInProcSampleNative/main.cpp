@@ -99,10 +99,10 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normal
     camera.computeViewProjectionMatrices(normalizedView, invert, depthiness, focus, viewMatrix, projectionMatrix);
 
     // Compute the model matrix (e.g., rotating cube)
-    // float timeValue = (float)glfwGetTime();
-    float timeValue = 0.0f;
-    // Matrix4 modelMatrix = camera.getModelMatrix(timeValue, -timeValue);
-    Matrix4 modelMatrix = camera.getModelMatrix(3.14159f * 0.25f, 3.14159f * 0.25f);
+    float timeValue = (float)glfwGetTime();
+    //float timeValue = 0.0f;
+    Matrix4 modelMatrix = camera.getModelMatrix(timeValue, -timeValue);
+    //Matrix4 modelMatrix = camera.getModelMatrix(3.14159f * 0.25f, 3.14159f * 0.25f);
 
     // Set uniforms
     ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix.m);

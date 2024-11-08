@@ -438,17 +438,21 @@ int main(void)
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_DEPTH_TEST);
 
-    Vector3 position = Vector3(0.0f, 0.0f, 5.0f);
+    float size = 10.0f;
     Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
     Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
 
-    float fov = 45.0f;
+    // fov should not be viewcone, they are separate!
+    // float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
+    float fov = 14.0f;
+    float viewcone = isBridgeDataInitialized ? bridgeData.viewcone : 40.0f;
     float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
     float nearPlane = 0.001f;
     float farPlane = 100.0f;
 
-    LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
-
+    // LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
+    LKGCamera camera = LKGCamera(size, target, up, fov, viewcone, aspect, nearPlane, farPlane);
+    
     int totalViews = bridgeData.vx * bridgeData.vy;
 
     while (!glfwWindowShouldClose(window))

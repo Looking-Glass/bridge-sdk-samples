@@ -4,6 +4,7 @@
 #include <GL/glext.h>
 #include <string.h>
 #include <bridge.h>
+#include <bridge_utils.hpp>
 #include <LKGCamera.h>
 #include <memory>
 #include <codecvt>
@@ -43,6 +44,50 @@ const char* fragmentShaderSource =
     "    FragColor = vec4(vertexColor, 1.0);\n"
     "}";
 
+const float vertices[] =
+{
+    // Positions           // Colors
+    -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  // Front face
+     0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
+
+    -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  // Back face
+     0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,  // Left face
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
+
+     0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  // Right face
+     0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  // Bottom face
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,  // Top face
+     0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f
+};
+
+const unsigned int indices[] =
+{
+    0, 1, 2, 2, 3, 0,        // Front face
+    4, 5, 6, 6, 7, 4,        // Back face
+    8, 9, 10, 10, 11, 8,     // Left face
+    12, 13, 14, 14, 15, 12,  // Right face
+    16, 17, 18, 18, 19, 16,  // Bottom face
+    20, 21, 22, 22, 23, 20   // Top face
+};
+
 void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
 {
     ogl::glBindVertexArray(vao);
@@ -76,6 +121,7 @@ int main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window = glfwCreateWindow(800, 800, "Bridge InProc SDK Native Sample -- No Device Connected!", nullptr, nullptr);
     
@@ -101,43 +147,52 @@ int main(void)
     }
 
     WINDOW_HANDLE wnd = 0;
+    std::vector<DisplayInfo> displays;
+
     if (controller)
     {
-        // Get displays
-        int display_count = 0;
-        controller->GetDisplays(&display_count, nullptr);
-        std::vector<unsigned long> display_ids(display_count);
-        controller->GetDisplays(&display_count, display_ids.data());
+        // Get display information list
+        displays = controller->GetDisplayInfoList();
 
-        if (!display_ids.empty())
+        // Print all display names
+        for (const auto& displayInfo : displays)
         {
-            unsigned long first_display_id = display_ids.front();
-            if (controller->InstanceWindowGL(&wnd, first_display_id))
-            {
-                // Window handle created successfully
-            }
-            else
-            {
-                wnd = 0;
-            }
+            std::wcout << displayInfo.name << std::endl;
+        }
+
+        // For now we will use the first looking glass display
+        if (!displays.empty() && controller->InstanceWindowGL(&wnd, displays[0].display_id))
+        {
+            // Successfully created the window handle
+        }
+        else
+        {
+            wnd = 0;
         }
     }
-
-    // Create BridgeData
-    BridgeData bridgeData = BridgeData::Create(*controller, wnd);
+    
+    BridgeWindowData bridgeData = controller ? controller->GetWindowData(wnd) : BridgeWindowData();
     bool isBridgeDataInitialized = (bridgeData.wnd != 0);
 
-    // Update window size and title
+    // Update window size and title if BridgeData is initialized
     if (isBridgeDataInitialized)
     {
-        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-        if (!bridgeData.display_infos.empty())
+        // Find display info for the window title based on display index
+        auto displayInfoIt = std::find_if(
+            displays.begin(),
+            displays.end(),
+            [&bridgeData](const DisplayInfo& info)
+            {
+                return info.display_id == bridgeData.display_index;
+            }
+        );
+
+        if (displayInfoIt != displays.end())
         {
-            const DisplayInfo& firstDisplay = bridgeData.display_infos.front();
             std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
             std::string window_title = "Bridge InProc SDK Native Sample -- " +
-                                    converter.to_bytes(firstDisplay.name) +
-                                    " : " + converter.to_bytes(firstDisplay.serial);
+                converter.to_bytes(displayInfoIt->name) +
+                " : " + converter.to_bytes(displayInfoIt->serial);
             glfwSetWindowTitle(window, window_title.c_str());
         }
 
@@ -201,50 +256,6 @@ int main(void)
     }
 
     GLuint shaderProgram = ogl::createProgram(vertexShaderSource, fragmentShaderSource);
-
-    float vertices[] = 
-    {
-        // Positions           // Colors
-        -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  // Front face
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-
-        -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  // Back face
-         0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,  // Left face
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-
-         0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  // Right face
-         0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  // Bottom face
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
-
-        -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,  // Top face
-         0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f
-    };
-
-    unsigned int indices[] = 
-    {
-        0, 1, 2, 2, 3, 0,        // Front face
-        4, 5, 6, 6, 7, 4,        // Back face
-        8, 9, 10, 10, 11, 8,     // Left face
-        12, 13, 14, 14, 15, 12,  // Right face
-        16, 17, 18, 18, 19, 16,  // Bottom face
-        20, 21, 22, 22, 23, 20   // Top face
-    };
 
     GLuint vao, vbo, ebo;
     ogl::glGenVertexArrays(1, &vao);

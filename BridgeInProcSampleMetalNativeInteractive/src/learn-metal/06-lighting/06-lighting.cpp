@@ -353,7 +353,7 @@ void initBridge(MTL::Device* pDevice)
 {
     g_controller = make_unique<Controller>();
 
-    if (g_controller->Initialize("BridgeInProcSampleNative"))
+    if (g_controller->Initialize("BridgeSDKSampleNative"))
     {
         populate_active_bridge_version();
         populate_displays();
@@ -572,7 +572,7 @@ void MyAppDelegate::applicationDidFinishLaunching( NS::Notification* pNotificati
     _pMtkView->setDelegate( _pViewDelegate ); 
 
     _pWindow->setContentView( _pMtkView );
-    _pWindow->setTitle( NS::String::string( "BridgeInProcSampleMetalNativeInteractive", NS::StringEncoding::UTF8StringEncoding ) );
+    _pWindow->setTitle( NS::String::string( "BridgeSDKSampleMetalNativeInteractive", NS::StringEncoding::UTF8StringEncoding ) );
 
     if (!g_controller)
     {

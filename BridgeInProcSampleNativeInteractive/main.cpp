@@ -225,7 +225,7 @@ int main(void)
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);         // Make the window non-resizable
     glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);           // Keeps window on top (optional)
 
-    window = glfwCreateWindow(800, 800, "Bridge InProc SDK Native Interactive Sample -- No Device Connected!", nullptr, nullptr);
+    window = glfwCreateWindow(800, 800, "Bridge SDK Native Interactive Sample -- No Device Connected!", nullptr, nullptr);
     
     if (!window) 
     {
@@ -241,9 +241,9 @@ int main(void)
     std::unique_ptr<Controller> controller = std::make_unique<Controller>();
 
     #ifdef _WIN32
-    if (!controller->Initialize(L"BridgeInProcSampleNative"))
+    if (!controller->Initialize(L"BridgeSDKSampleNative"))
     #else
-    if (!controller->Initialize("BridgeInProcSampleNative"))
+    if (!controller->Initialize("BridgeSDKSampleNative"))
     #endif
     {
         controller = nullptr;
@@ -294,7 +294,7 @@ int main(void)
         if (displayInfoIt != displays.end())
         {
             std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-            std::string window_title = "Bridge InProc SDK Native Interactive Sample -- " +
+            std::string window_title = "Bridge SDK Native Interactive Sample -- " +
                 converter.to_bytes(displayInfoIt->name) +
                 " : " + converter.to_bytes(displayInfoIt->serial);
             glfwSetWindowTitle(window, window_title.c_str());

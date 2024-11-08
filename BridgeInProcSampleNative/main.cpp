@@ -99,8 +99,10 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normal
     camera.computeViewProjectionMatrices(normalizedView, invert, depthiness, focus, viewMatrix, projectionMatrix);
 
     // Compute the model matrix (e.g., rotating cube)
-    float timeValue = (float)glfwGetTime();
-    Matrix4 modelMatrix = camera.getModelMatrix(timeValue, -timeValue);
+    // float timeValue = (float)glfwGetTime();
+    float timeValue = 0.0f;
+    // Matrix4 modelMatrix = camera.getModelMatrix(timeValue, -timeValue);
+    Matrix4 modelMatrix = camera.getModelMatrix(3.14159f * 0.25f, 3.14159f * 0.25f);
 
     // Set uniforms
     ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix.m);
@@ -203,16 +205,20 @@ int main(void)
         glfwSetWindowSize(window, window_width, window_height);
     }
 
-    Vector3 position = Vector3(0.0f, 0.0f, 5.0f);
+    float size = 10.0f;
     Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
     Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
 
-    float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
+    // fov should not be viewcone, they are separate!
+    // float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
+    float fov = 14.0f;
+    float viewcone = isBridgeDataInitialized ? bridgeData.viewcone : 40.0f;
     float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
     float nearPlane = 0.001f;
     float farPlane = 100.0f;
 
-    LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
+    // LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
+    LKGCamera camera = LKGCamera(size, target, up, fov, viewcone, aspect, nearPlane, farPlane);
 
     // Initialize OpenGL textures and framebuffers
     GLuint render_texture = 0;

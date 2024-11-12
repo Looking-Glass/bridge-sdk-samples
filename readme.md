@@ -12,6 +12,8 @@ The SDK comes in two different flavors:
 Developers can use the following rendering backends:
 
 - OpenGL
+
+Other rendering backends samples are WIP and located in the ```csharp_samples``` branch
 - DirectX 11
 - DirectX 12
 - Metal
@@ -44,27 +46,15 @@ A few example projects are distributed as part of the Looking Glass Bridge SDK t
 To learn more about the Looking Glass and how it works, click [here](https://docs.lookingglassfactory.com/keyconcepts/how-it-works). 
 
 ## Examples
+Both examples are written in C++, and render a cube using OpenGL and GLFW. Click and drag to rotate the cube, and use the scroll wheel to change the focus distance.
 
-C++ samples are labeled "Native" all other samples are using C#
+```BridgeSDKSampleNative```
 
-Any sample labeled "Interactive" uses a window created in the sample to render to the Looking Glass. This is intended for applications where there will not be a 2D window showing on the users 2D display.
+This sample uses a 2D window for interaction and renders a 3D version of the view to the looking glass. This allows bridge to handle the 3D window management for you!
 
-OpenGL Samples:
-- BridgeSDKSample
-- BridgeSDKSampleOSX
-- BridgeSDKSampleNative
-- BridgeSDKSampleNativeInteractive
+```BridgeSDKSampleNativeInteractive```
 
-DirectX Samples:
-- BridgeSDKSampleDX11
-- BridgeSDKSampleDX11Interactive
-- BridgeSDKSampleDX12
-- BridgeSDKSampleDX12Interactive
-
-Metal Samples:
-- BridgeSDKSampleOSXMetal_arm64
-- BridgeSDKSampleOSXMetal_x86_64
-- BridgeSDKSampleMetalNativeInteractive
+This sample allows for interaction in the 3D window, but requires the developer to manage positioning and sizing the 3D window correctly.
 
 ## Building Samples:
 
@@ -79,7 +69,7 @@ cd ..
 cmake --build ./build
 ```
 
-All other sample directories contain a dotnet solution:
+the WIP c# samples found in the ```csharp_samples``` branch can all be built using dotnet:
 
 ```bash
 cd BridgeSDKSample

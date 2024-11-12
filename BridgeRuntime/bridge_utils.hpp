@@ -1390,7 +1390,7 @@ public:
         return func(display_index, x, y);
     }
 
-    void Controller::PopulateWindowValues(BridgeWindowData& bridgeData, WINDOW_HANDLE wnd) {
+    void PopulateWindowValues(BridgeWindowData& bridgeData, WINDOW_HANDLE wnd) {
         GetDeviceType(wnd, &bridgeData.device_type);
         GetDefaultQuiltSettings(wnd, &bridgeData.aspect, &bridgeData.quilt_width, &bridgeData.quilt_height, &bridgeData.vx, &bridgeData.vy);
         GetWindowDimensions(wnd, &bridgeData.output_width, &bridgeData.output_height);

@@ -50,28 +50,28 @@ C++ samples are labeled "Native" all other samples are using C#
 Any sample labeled "Interactive" uses a window created in the sample to render to the Looking Glass. This is intended for applications where there will not be a 2D window showing on the users 2D display.
 
 OpenGL Samples:
-- BridgeInProcSample
-- BridgeInProcSampleOSX
-- BridgeInProcSampleNative
-- BridgeInProcSampleNativeInteractive
+- BridgeSDKSample
+- BridgeSDKSampleOSX
+- BridgeSDKSampleNative
+- BridgeSDKSampleNativeInteractive
 
 DirectX Samples:
-- BridgeInProcSampleDX11
-- BridgeInProcSampleDX11Interactive
-- BridgeInProcSampleDX12
-- BridgeInProcSampleDX12Interactive
+- BridgeSDKSampleDX11
+- BridgeSDKSampleDX11Interactive
+- BridgeSDKSampleDX12
+- BridgeSDKSampleDX12Interactive
 
 Metal Samples:
-- BridgeInProcSampleOSXMetal_arm64
-- BridgeInProcSampleOSXMetal_x86_64
-- BridgeInProcSampleMetalNativeInteractive
+- BridgeSDKSampleOSXMetal_arm64
+- BridgeSDKSampleOSXMetal_x86_64
+- BridgeSDKSampleMetalNativeInteractive
 
 ## Building Samples:
 
 Native samples are built using cmake:
 
 ```bash
-cd BridgeInProcSampleNative
+cd BridgeSDKSampleNative
 mkdir build
 cd build
 cmake ..
@@ -82,7 +82,7 @@ cmake --build ./build
 All other sample directories contain a dotnet solution:
 
 ```bash
-cd BridgeInProcSample
+cd BridgeSDKSample
 dotnet workload restore
 dotnet restore
 dotnet build

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BridgeSDKSampleDX12": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

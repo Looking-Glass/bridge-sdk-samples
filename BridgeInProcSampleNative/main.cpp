@@ -88,6 +88,14 @@ const unsigned int indices[] =
     20, 21, 22, 22, 23, 20   // Top face
 };
 
+// Global variables for mouse control
+bool mousePressed = false;
+double lastX = 0.0, lastY = 0.0;
+float angleX = 0.0f, angleY = 0.0f;
+
+float focus = 0.0f;
+float depthiness = 1.0f;
+
 void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
 {
     ogl::glBindVertexArray(vao);
@@ -99,10 +107,7 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normal
     camera.computeViewProjectionMatrices(normalizedView, invert, depthiness, focus, viewMatrix, projectionMatrix);
 
     // Compute the model matrix (e.g., rotating cube)
-    float timeValue = (float)glfwGetTime();
-    //float timeValue = 0.0f;
-    Matrix4 modelMatrix = camera.getModelMatrix(timeValue, -timeValue);
-    //Matrix4 modelMatrix = camera.getModelMatrix(3.14159f * 0.25f, 3.14159f * 0.25f);
+    Matrix4 modelMatrix = camera.getModelMatrix(angleX, angleY);
 
     // Set uniforms
     ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix.m);
@@ -111,6 +116,43 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normal
 
     // Draw the object
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) 
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT) 
+    {
+        if (action == GLFW_PRESS) 
+        {
+            mousePressed = true;
+            glfwGetCursorPos(window, &lastX, &lastY);
+        } 
+        else if (action == GLFW_RELEASE) 
+        {
+            mousePressed = false;
+        }
+    }
+}
+
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) 
+{
+    if (mousePressed) 
+    {
+        float xoffset = float(xpos - lastX);
+        float yoffset = float(ypos - lastY);
+        lastX = xpos;
+        lastY = ypos;
+        angleX += yoffset * 0.005f; // Sensitivity
+        angleY += xoffset * 0.005f; // Sensitivity
+    }
+}
+
+// Scroll callback function
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    // Adjust the focus based on scroll direction
+    focus += static_cast<float>(yoffset) * 0.075f; // Sensitivity
+    depthiness += static_cast<float>(xoffset) * 0.075f; // Sensitivity
 }
 
 int main(void)
@@ -205,6 +247,10 @@ int main(void)
         glfwSetWindowSize(window, window_width, window_height);
     }
 
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+
     float size = 10.0f;
     Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
     Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
@@ -295,8 +341,6 @@ int main(void)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     int totalViews = bridgeData.vx * bridgeData.vy;
-    float depthiness = 1.0f;
-    float focus = 0.0f;
 
     // Rendering loop
     while (!glfwWindowShouldClose(window))

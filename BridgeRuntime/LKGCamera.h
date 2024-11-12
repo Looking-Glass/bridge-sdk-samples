@@ -113,9 +113,9 @@ public:
             for (int j = 0; j < 4; ++j) // Rows
             {
                 result.m[i * 4 + j] = m[i * 4 + 0] * other.m[0 * 4 + j] +
-                                      m[i * 4 + 1] * other.m[1 * 4 + j] +
-                                      m[i * 4 + 2] * other.m[2 * 4 + j] +
-                                      m[i * 4 + 3] * other.m[3 * 4 + j];
+                    m[i * 4 + 1] * other.m[1 * 4 + j] +
+                    m[i * 4 + 2] * other.m[2 * 4 + j] +
+                    m[i * 4 + 3] * other.m[3 * 4 + j];
             }
         }
         return result;
@@ -148,26 +148,26 @@ public:
 
     LKGCamera()
         : size(10.0f),
-          center(0.0f, 0.0f, 0.0f),
-          up(0.0f, 1.0f, 0.0f),
-          fov(45.0f),
-          viewcone(40.0f),
-          aspectRatio(1.0f),
-          nearPlane(0.1f),
-          farPlane(100.0f)
+        center(0.0f, 0.0f, 0.0f),
+        up(0.0f, 1.0f, 0.0f),
+        fov(45.0f),
+        viewcone(40.0f),
+        aspectRatio(1.0f),
+        nearPlane(0.1f),
+        farPlane(100.0f)
     {
     }
 
     LKGCamera(float size, const Vector3& center, const Vector3& upVec,
-              float fieldOfView, float viewcone, float aspect, float nearP, float farP)
+        float fieldOfView, float viewcone, float aspect, float nearP, float farP)
         : size(size),
-          center(center),
-          up(upVec),
-          fov(fieldOfView),
-          viewcone(viewcone),
-          aspectRatio(aspect),
-          nearPlane(nearP),
-          farPlane(farP)
+        center(center),
+        up(upVec),
+        fov(fieldOfView),
+        viewcone(viewcone),
+        aspectRatio(aspect),
+        nearPlane(nearP),
+        farPlane(farP)
     {
     }
 
@@ -223,7 +223,7 @@ public:
         float frustumShift = distanceFromCenter * focus;
 
         // Modify the projection matrix to include frustum shift (column-major order)
-        projectionMatrix[8] += offset * 2.0f / (size * aspectRatio);
+        projectionMatrix[8] += (offset * 2.0f / (size * aspectRatio)) + frustumShift;
     }
 
 private:
@@ -246,18 +246,18 @@ private:
         // Build the view matrix in column-major order
         Matrix4 matrix = Matrix4::Identity();
 
-        matrix[0]  = s.x;
-        matrix[1]  = u.x;
-        matrix[2]  = -f.x;
-        matrix[3]  = 0.0f;
+        matrix[0] = s.x;
+        matrix[1] = u.x;
+        matrix[2] = -f.x;
+        matrix[3] = 0.0f;
 
-        matrix[4]  = s.y;
-        matrix[5]  = u.y;
-        matrix[6]  = -f.y;
-        matrix[7]  = 0.0f;
+        matrix[4] = s.y;
+        matrix[5] = u.y;
+        matrix[6] = -f.y;
+        matrix[7] = 0.0f;
 
-        matrix[8]  = s.z;
-        matrix[9]  = u.z;
+        matrix[8] = s.z;
+        matrix[9] = u.z;
         matrix[10] = -f.z;
         matrix[11] = 0.0f;
 

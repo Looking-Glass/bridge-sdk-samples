@@ -1,11 +1,4 @@
-BridgeSDKSample/build/
-BridgeSDKSampleDX11/build/
-BridgeSDKSampleDX11Interactive/build/
-BridgeSDKSampleDX12/build/
-BridgeSDKSampleDX12Interactive/build/
-BridgeSDKSampleMetalNativeInteractive/build/
-BridgeSDKSampleNative/build/
-BridgeSDKSampleNativeInteractive/build/
-BridgeSDKSampleOSX/build/
-BridgeSDKSampleOSXMetal_arm64/build/
-BridgeSDKSampleOSXMetal_x86_64/build/
+build
+.vscode
+
+.DS_Store

@@ -1,4 +1,14 @@
+#ifndef OGL_H
+#define OGL_H
+
 typedef void (*PFNGLTEXIMAGE2DPROC)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * pixels);
+typedef void (*PFNGLUNIFORM1FPROC)(GLint location, GLfloat v0);
+typedef void (*PFNGLUNIFORM1IPROC)(GLint location, GLint v0);
+typedef void (*PFNGLDRAWELEMENTSPROC)(GLenum mode, GLsizei count, GLenum type, const void * indices);
+typedef void (*PFNGLGENTEXTURESPROC)(GLsizei n, GLuint* textures);
+typedef void (*PFNGLBINDTEXTUREPROC)(GLenum target, GLuint texture);
+typedef void (*PFNGLTEXPARAMETERIPROC)(GLenum target, GLenum pname, GLint param);
+typedef void (*PFNGLGENERATEMIPMAPPROC)(GLenum target);
 
 #ifdef __APPLE__
 typedef void (*PFNGLGENBUFFERSPROC)(GLsizei, GLuint*);
@@ -60,6 +70,13 @@ namespace ogl
     PFNGLDELETEBUFFERSPROC           glDeleteBuffers = nullptr;
     PFNGLDELETEVERTEXARRAYSPROC      glDeleteVertexArrays = nullptr;
     PFNGLDELETEPROGRAMPROC           glDeleteProgram = nullptr;
+    PFNGLUNIFORM1FPROC glUniform1f = nullptr;
+    PFNGLUNIFORM1IPROC glUniform1i = nullptr;
+    PFNGLDRAWELEMENTSPROC glDrawElements = nullptr;
+    PFNGLGENTEXTURESPROC           glGenTextures = nullptr;
+    PFNGLBINDTEXTUREPROC           glBindTexture = nullptr;
+    PFNGLTEXPARAMETERIPROC         glTexParameteri = nullptr;
+    PFNGLGENERATEMIPMAPPROC        glGenerateMipmap = nullptr;
 
     void loadOpenGLFunctions() 
     {
@@ -97,6 +114,13 @@ namespace ogl
         glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)glfwGetProcAddress("glDeleteBuffers");
         glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC)glfwGetProcAddress("glDeleteVertexArrays");
         glDeleteProgram = (PFNGLDELETEPROGRAMPROC)glfwGetProcAddress("glDeleteProgram");
+        glUniform1f = (PFNGLUNIFORM1FPROC)glfwGetProcAddress("glUniform1f");
+        glUniform1i = (PFNGLUNIFORM1IPROC)glfwGetProcAddress("glUniform1i");
+        glDrawElements = (PFNGLDRAWELEMENTSPROC)glfwGetProcAddress("glDrawElements");
+        glGenTextures = (PFNGLGENTEXTURESPROC)glfwGetProcAddress("glGenTextures");
+        glBindTexture = (PFNGLBINDTEXTUREPROC)glfwGetProcAddress("glBindTexture");
+        glTexParameteri = (PFNGLTEXPARAMETERIPROC)glfwGetProcAddress("glTexParameteri");
+        glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC)glfwGetProcAddress("glGenerateMipmap");
     }
 
     GLuint loadShader(const char* source, GLenum type) 
@@ -147,3 +171,5 @@ inline void setMatrixUniforms(GLuint shaderProgram, const char* name, const GLfl
     GLint location = ogl::glGetUniformLocation(shaderProgram, name);
     ogl::glUniformMatrix4fv(location, 1, GL_FALSE, matrix);
 }
+
+#endif

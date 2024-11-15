@@ -13,7 +13,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
-#include <ogl.h>
+#include "shader.h"
+#include "mesh.h"
+#include "texture.h"
 
 #ifdef _WIN32
 #pragma optimize("", off)
@@ -23,84 +25,18 @@ extern "C" {
 }
 #endif
 
-const char* vertexShaderSource =
-    "#version 330 core\n"
-    "layout (location = 0) in vec3 position;\n"
-    "layout (location = 1) in vec3 color;\n"
-    "out vec3 vertexColor;\n"
-    "uniform mat4 model;\n"
-    "uniform mat4 view;\n"
-    "uniform mat4 projection;\n"
-    "void main() {\n"
-    "    gl_Position = projection * view * model * vec4(position, 1.0);\n"
-    "    vertexColor = color;\n"
-    "}\n";
-
-const char* fragmentShaderSource = 
-    "#version 330 core\n"
-    "in vec3 vertexColor;\n"
-    "out vec4 FragColor;\n"
-    "void main() {\n"
-    "    FragColor = vec4(vertexColor, 1.0);\n"
-    "}";
-
-const float vertices[] =
-{
-    // Positions           // Colors
-    -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  // Front face
-     0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-
-    -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  // Back face
-     0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,  // Left face
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-
-     0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f,  // Right face
-     0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,  // Bottom face
-     0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
-
-    -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,  // Top face
-     0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f
-};
-
-const unsigned int indices[] =
-{
-    0, 1, 2, 2, 3, 0,        // Front face
-    4, 5, 6, 6, 7, 4,        // Back face
-    8, 9, 10, 10, 11, 8,     // Left face
-    12, 13, 14, 14, 15, 12,  // Right face
-    16, 17, 18, 18, 19, 16,  // Bottom face
-    20, 21, 22, 22, 23, 20   // Top face
-};
-
 // Global variables for mouse control
 bool mousePressed = false;
 double lastX = 0.0, lastY = 0.0;
 float angleX = 0.0f, angleY = 0.0f;
 
-float focus = 0.0f;
+float focus = -0.5f;
 float depthiness = 1.0f;
 
-void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
+void drawScene(Shader shaderProgram, Mesh& mesh, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
 {
-    ogl::glBindVertexArray(vao);
-    ogl::glUseProgram(shaderProgram);
-
+    shaderProgram.use();
+    
     // Compute view and projection matrices using LKGCamera
     Matrix4 viewMatrix;
     Matrix4 projectionMatrix;
@@ -110,12 +46,12 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normal
     Matrix4 modelMatrix = camera.getModelMatrix(angleX, angleY);
 
     // Set uniforms
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, modelMatrix.m);
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, viewMatrix.m);
-    ogl::glUniformMatrix4fv(ogl::glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projectionMatrix.m);
+    shaderProgram.setMat4("model", modelMatrix.m);
+    shaderProgram.setMat4("view", viewMatrix.m);
+    shaderProgram.setMat4("projection", projectionMatrix.m);
 
     // Draw the object
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+    mesh.draw();
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) 
@@ -260,7 +196,7 @@ int main(void)
     float fov = 14.0f;
     float viewcone = isBridgeDataInitialized ? bridgeData.viewcone : 40.0f;
     float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
-    float nearPlane = 0.001f;
+    float nearPlane = 0.1f;
     float farPlane = 100.0f;
 
     // LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
@@ -307,28 +243,11 @@ int main(void)
         ogl::glBindRenderbuffer(GL_RENDERBUFFER, 0);
     }
 
-    GLuint shaderProgram = ogl::createProgram(vertexShaderSource, fragmentShaderSource);
+    Shader shaderProgram("Assets/default.vert.glsl", "Assets/default.frag.glsl");
+    shaderProgram.use();
 
-    GLuint vao, vbo, ebo;
-    ogl::glGenVertexArrays(1, &vao);
-    ogl::glBindVertexArray(vao);
-
-    ogl::glGenBuffers(1, &vbo);
-    ogl::glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    ogl::glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    ogl::glGenBuffers(1, &ebo);
-    ogl::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    ogl::glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    ogl::glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    ogl::glEnableVertexAttribArray(0);
-
-    ogl::glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    ogl::glEnableVertexAttribArray(1);
-
-    ogl::glUseProgram(shaderProgram);
-    ogl::glBindVertexArray(vao);
+    //Mesh cubeMesh = Mesh::createCube();
+    Mesh cubeMesh = Mesh::loadObj("C:\\Repos\\LookingGlassBridge\\test_harnesses\\LookingGlassBridgeSDKExamples\\BridgeSDKSampleNative\\build\\Debug\\Assets\\objs\\12221_Cat_v1_l3.obj");
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -340,6 +259,8 @@ int main(void)
     glPolygonMode(GL_FRONT, GL_FILL);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
+    int quiltX = bridgeData.vx;
+    int quiltY = bridgeData.vy;
     int totalViews = bridgeData.vx * bridgeData.vy;
 
     // Rendering loop
@@ -353,7 +274,7 @@ int main(void)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        drawScene(shaderProgram, vao, camera);
+        drawScene(shaderProgram, cubeMesh, camera);
         
         glfwSwapBuffers(window);
 
@@ -364,23 +285,23 @@ int main(void)
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            for (int y = 0; y < bridgeData.vy; y++)
+            for (int y = 0; y < quiltY; y++)
             {
-                for (int x = 0; x < bridgeData.vx; x++)
+                for (int x = 0; x < quiltX; x++)
                 {
-                    int invertedY = bridgeData.vy - 1 - y;
+                    int invertedY = quiltY - 1 - y;
                     glViewport(x * bridgeData.view_width, invertedY * bridgeData.view_height, bridgeData.view_width, bridgeData.view_height);
 
-                    int viewIndex = y * bridgeData.vx + x;
+                    int viewIndex = y * quiltX + x;
                     float normalizedView = static_cast<float>(viewIndex) / static_cast<float>(totalViews - 1);
 
-                    drawScene(shaderProgram, vao, camera, normalizedView, true, depthiness, focus);
+                    drawScene(shaderProgram, cubeMesh, camera, normalizedView, true, depthiness, focus);
                 }
             }
 
             controller->DrawInteropQuiltTextureGL(bridgeData.wnd, render_texture, PixelFormats::RGBA,
                                                 bridgeData.quilt_width, bridgeData.quilt_height,
-                                                bridgeData.vx, bridgeData.vy, bridgeData.displayaspect, 1.0f);
+                                                quiltX, quiltY, bridgeData.displayaspect, 1.0f);
         }
 
         glfwPollEvents();
@@ -393,13 +314,10 @@ int main(void)
     }
 
     // Delete OpenGL resources
-    ogl::glDeleteVertexArrays(1, &vao);
-    ogl::glDeleteBuffers(1, &vbo);
-    ogl::glDeleteBuffers(1, &ebo);
     glDeleteTextures(1, &render_texture);
     ogl::glDeleteRenderbuffers(1, &depth_buffer);
     ogl::glDeleteFramebuffers(1, &render_fbo);
-    ogl::glDeleteProgram(shaderProgram);
+    ogl::glDeleteProgram(shaderProgram.ID);
 
     glfwTerminate();
 

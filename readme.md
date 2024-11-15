@@ -9,17 +9,9 @@ The SDK comes in two different flavors:
 
 ## Prerequisites 
 
-Developers can use the following rendering backends:
+In order to render to use this SDK to render to Looking Glass display, your application must be able to:
 
-- OpenGL
-
-Other rendering backends samples are WIP and located in the ```csharp_samples``` branch
-- DirectX 11
-- DirectX 12
-- Metal
-
-Beyond that, in order to render to the Looking Glass display, your application must be able to:
-
+- Render to an OpenGL texture
 - Distort the camera's projection matrix
 - Render multiple views to a texture
 - Pass that texture to the SDK
@@ -67,16 +59,6 @@ cd build
 cmake ..
 cd ..
 cmake --build ./build
-```
-
-the WIP c# samples found in the ```csharp_samples``` branch can all be built using dotnet:
-
-```bash
-cd BridgeSDKSample
-dotnet workload restore
-dotnet restore
-dotnet build
-dotnet run
 ```
 
 ## Questions

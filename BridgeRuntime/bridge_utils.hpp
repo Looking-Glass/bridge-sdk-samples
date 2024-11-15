@@ -269,6 +269,19 @@ public:
                             }
                         }
 
+                        // Remove versions below the minimum allowed version
+                        for (auto it = versionPaths.begin(); it != versionPaths.end();)
+                        {
+                            if (it->first < MinBridgeVersion)
+                            {
+                                it = versionPaths.erase(it);
+                            }
+                            else
+                            {
+                                ++it;
+                            }
+                        }
+
                         // First, check if the requested version exists
                         if (versionPaths.find(requestedVersion) != versionPaths.end())
                         {
@@ -297,6 +310,7 @@ public:
                 }
             }
         }
+
         return ret;  // Return an empty string if no matching version found
     }
 #else
@@ -357,6 +371,19 @@ public:
                             }
                         }
 
+                        // Remove versions below the minimum allowed version
+                        for (auto it = versionPaths.begin(); it != versionPaths.end();)
+                        {
+                            if (it->first < MinBridgeVersion)
+                            {
+                                it = versionPaths.erase(it);
+                            }
+                            else
+                            {
+                                ++it;
+                            }
+                        }
+
                         // First, check if the requested version exists
                         if (versionPaths.find(requestedVersion) != versionPaths.end())
                         {
@@ -390,14 +417,40 @@ public:
 #endif
 
 #ifdef _WIN32
-    bool Initialize(const std::wstring& app_name, const std::wstring& desired_bridge_version = ::BridgeVersion)
-#else
-    bool Initialize(const std::string& app_name, const std::string& desired_bridge_version = ::BridgeVersion)
-#endif
+bool Initialize(const std::wstring& app_name, const std::wstring& desired_bridge_version = ::BridgeVersion)
+{
+    std::wstring installPath = BridgeInstallLocation(desired_bridge_version);
+    bool initialized = InitializeWithPath(app_name, installPath);
+
+    if (!initialized)
     {
-        auto installPath = BridgeInstallLocation(desired_bridge_version);
-        return InitializeWithPath(app_name, installPath);
+        std::wcout << L"Failed to initialize bridge version " << installPath << L"\n";
     }
+    else
+    {
+        std::wcout << L"Bridge initialized with version " << installPath << L"\n";
+    }
+
+    return initialized;
+}
+#else
+bool Initialize(const std::string& app_name, const std::string& desired_bridge_version = ::BridgeVersion)
+{
+    std::string installPath = BridgeInstallLocation(desired_bridge_version);
+    bool initialized = InitializeWithPath(app_name, installPath);
+
+    if (!initialized)
+    {
+        std::cout << "Failed to initialize bridge version " << installPath << "\n";
+    }
+    else
+    {
+        std::cout << "Bridge initialized with version " << installPath << "\n";
+    }
+
+    return initialized;
+}
+#endif
 
 #ifdef _WIN32
     bool InitializeWithPath(const std::wstring& app_name, const std::wstring& manual_install_location)
@@ -1521,6 +1574,38 @@ public:
         PopulateDisplayInfos(displayInfos);
         return displayInfos;
     }
+
+    bool Controller::IsDisplayDisconnected(const std::wstring& target_serial) {
+        int serial_count = 0;
+
+        // Query the SDK to count the number of displays
+        GetDisplays(&serial_count, nullptr);
+        if (serial_count == 0) {
+            return true; // No displays connected at all
+        }
+
+        // Iterate through display IDs to find the target serial
+        std::vector<unsigned long> display_ids(serial_count);
+        GetDisplays(&serial_count, display_ids.data());
+
+        for (const auto& display_id : display_ids) {
+            int current_serial_count = 0;
+            GetDeviceSerialForDisplay(display_id, &current_serial_count, nullptr);
+
+            if (current_serial_count > 0) {
+                std::wstring current_serial(current_serial_count, L'\0');
+                GetDeviceSerialForDisplay(display_id, &current_serial_count, &current_serial[0]);
+
+                // Check if the current serial matches the target serial
+                if (current_serial == target_serial) {
+                    return false; // Display is still connected
+                }
+            }
+        }
+
+        return true; // Display with the target serial is not found
+    }
+
 };
 #ifdef _WIN32
 #pragma warning(default : 4244)

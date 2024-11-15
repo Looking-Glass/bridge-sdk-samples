@@ -201,10 +201,10 @@ public:
     }
 
     // Compute view and projection matrices for hologram views
-    void computeViewProjectionMatrices(float normalizedView, bool invert, float depthiness, float focus, Matrix4& viewMatrix, Matrix4& projectionMatrix)
+    void computeViewProjectionMatrices(float normalizedView, bool invert, float offset_mult, float focus, Matrix4& viewMatrix, Matrix4& projectionMatrix)
     {
-        // Adjust camera position based on normalizedView and depthiness
-        float offset = -(normalizedView - 0.5f) * depthiness * getCameraOffset();
+        // Adjust camera position based on normalizedView and offset_mult
+        float offset = -(normalizedView - 0.5f) * offset_mult * getCameraOffset();
         Vector3 adjustedPosition = center + Vector3(offset, 0.0f, 0.0f);
 
         // Adjust up vector if invert is true

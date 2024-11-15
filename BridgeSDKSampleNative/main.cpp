@@ -14,6 +14,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
 #include <ogl.h>
+#include <chrono>
+#include <numeric>
+
 
 #ifdef _WIN32
 #pragma optimize("", off)
@@ -93,10 +96,10 @@ bool mousePressed = false;
 double lastX = 0.0, lastY = 0.0;
 float angleX = 0.0f, angleY = 0.0f;
 
-float focus = 0.0f;
-float depthiness = 1.0f;
+float focus = -0.5f;
+float offset_mult = 1.0f;
 
-void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
+void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float offset_mult = 0.0f, float focus = 0.0f)
 {
     ogl::glBindVertexArray(vao);
     ogl::glUseProgram(shaderProgram);
@@ -104,7 +107,7 @@ void drawScene(GLuint shaderProgram, GLuint vao, LKGCamera& camera, float normal
     // Compute view and projection matrices using LKGCamera
     Matrix4 viewMatrix;
     Matrix4 projectionMatrix;
-    camera.computeViewProjectionMatrices(normalizedView, invert, depthiness, focus, viewMatrix, projectionMatrix);
+    camera.computeViewProjectionMatrices(normalizedView, invert, offset_mult, focus, viewMatrix, projectionMatrix);
 
     // Compute the model matrix (e.g., rotating cube)
     Matrix4 modelMatrix = camera.getModelMatrix(angleX, angleY);
@@ -152,7 +155,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     // Adjust the focus based on scroll direction
     focus += static_cast<float>(yoffset) * 0.075f; // Sensitivity
-    depthiness += static_cast<float>(xoffset) * 0.075f; // Sensitivity
+    offset_mult += static_cast<float>(xoffset) * 0.075f; // Sensitivity
 }
 
 int main(void)
@@ -188,6 +191,7 @@ int main(void)
 #endif
     {
         controller = nullptr;
+        std::wcout << "Failed to initialize bridge. Bridge may be missing, or the version may be too old" << std::endl;
     }
 
     WINDOW_HANDLE wnd = 0;
@@ -212,15 +216,27 @@ int main(void)
         else
         {
             wnd = 0;
+            std::wcout << "Failed to initialize bridge window. do you have any displays connected?" << std::endl;
         }
     }
     
     BridgeWindowData bridgeData = controller ? controller->GetWindowData(wnd) : BridgeWindowData();
     bool isBridgeDataInitialized = (bridgeData.wnd != 0);
+    std::string window_title = "";
 
     // Update window size and title if BridgeData is initialized
     if (isBridgeDataInitialized)
     {
+        // Set focus based on aspect ratio
+        // Landscape displays need around -0.5f
+        // Widescreen displays need around -2f
+        focus = bridgeData.displayaspect > 1.0 ? -0.5f : -2.0f;
+
+        // multiplies the depthiness of the 3D output
+        // with a value of 1.0 objects should appear physically accurate 
+        // when on the focal plane
+        offset_mult = 1.0f;
+
         // Find display info for the window title based on display index
         auto displayInfoIt = std::find_if(
             displays.begin(),
@@ -234,7 +250,7 @@ int main(void)
         if (displayInfoIt != displays.end())
         {
             std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-            std::string window_title = "Bridge SDK Native Sample -- " +
+            window_title = "Bridge SDK Native Sample -- " +
                 converter.to_bytes(displayInfoIt->name) +
                 " : " + converter.to_bytes(displayInfoIt->serial);
             glfwSetWindowTitle(window, window_title.c_str());
@@ -255,15 +271,12 @@ int main(void)
     Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
     Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
 
-    // fov should not be viewcone, they are separate!
-    // float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
     float fov = 14.0f;
     float viewcone = isBridgeDataInitialized ? bridgeData.viewcone : 40.0f;
     float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
-    float nearPlane = 0.001f;
+    float nearPlane = 0.1f;
     float farPlane = 100.0f;
 
-    // LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
     LKGCamera camera = LKGCamera(size, target, up, fov, viewcone, aspect, nearPlane, farPlane);
 
     // Initialize OpenGL textures and framebuffers
@@ -342,9 +355,28 @@ int main(void)
 
     int totalViews = bridgeData.vx * bridgeData.vy;
 
+    std::vector<float> frameTimes;
+    const int maxSamples = 100; // Number of samples to calculate the average
+    auto lastTime = std::chrono::high_resolution_clock::now();
+
     // Rendering loop
     while (!glfwWindowShouldClose(window))
     {
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
+        lastTime = currentTime;
+
+        // Record frame time
+        if (frameTimes.size() < maxSamples)
+        {
+            frameTimes.push_back(1.0f / deltaTime); // FPS = 1 / deltaTime
+        }
+        else
+        {
+            frameTimes.erase(frameTimes.begin());
+            frameTimes.push_back(1.0f / deltaTime);
+        }
+
         // Draw to primary head
         ogl::glBindFramebuffer(GL_FRAMEBUFFER, 0);
         int fbWidth = 0, fbHeight = 0;
@@ -374,7 +406,7 @@ int main(void)
                     int viewIndex = y * bridgeData.vx + x;
                     float normalizedView = static_cast<float>(viewIndex) / static_cast<float>(totalViews - 1);
 
-                    drawScene(shaderProgram, vao, camera, normalizedView, true, depthiness, focus);
+                    drawScene(shaderProgram, vao, camera, normalizedView, true, offset_mult, focus);
                 }
             }
 
@@ -384,6 +416,14 @@ int main(void)
         }
 
         glfwPollEvents();
+
+        float averageFPS = std::accumulate(frameTimes.begin(), frameTimes.end(), 0.0f) / frameTimes.size();
+        std::stringstream ss;
+        ss << window_title.c_str();
+        ss << " ";
+        ss << averageFPS;
+
+        glfwSetWindowTitle(window, ss.str().c_str());
     }
 
     // Cleanup

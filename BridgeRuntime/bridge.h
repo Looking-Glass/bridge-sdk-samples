@@ -39,6 +39,12 @@ struct IUnknown;
     const static char BridgeVersion[] = "2.5.1";
 #endif
 
+#ifdef _WIN32
+	const static wchar_t MinBridgeVersion[] = L"2.5.0";
+#else
+	const static char MinBridgeVersion[] = "2.5.0";
+#endif
+
 const uint32_t FIRST_LOOKING_GLASS_DEVICE = -1;
 const uint32_t OFFSCREEN_WINDOW           = -2;
 
@@ -53,7 +59,6 @@ struct CalibrationSubpixelCell
 	float BOffsetX;
 	float BOffsetY;
 };
-
 
 struct LKGCalibration
 {

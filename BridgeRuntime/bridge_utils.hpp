@@ -1575,7 +1575,7 @@ public:
         return displayInfos;
     }
 
-    bool Controller::IsDisplayDisconnected(const std::wstring& target_serial) {
+    bool IsDisplayDisconnected(const std::wstring& target_serial) {
         int serial_count = 0;
 
         // Query the SDK to count the number of displays

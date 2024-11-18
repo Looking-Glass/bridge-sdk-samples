@@ -9,15 +9,9 @@ The SDK comes in two different flavors:
 
 ## Prerequisites 
 
-Developers can use the following rendering backends:
+In order to render to use this SDK to render to Looking Glass display, your application must be able to:
 
-- OpenGL
-- DirectX 11
-- DirectX 12
-- Metal
-
-Beyond that, in order to render to the Looking Glass display, your application must be able to:
-
+- Render to an OpenGL texture
 - Distort the camera's projection matrix
 - Render multiple views to a texture
 - Pass that texture to the SDK
@@ -44,49 +38,27 @@ A few example projects are distributed as part of the Looking Glass Bridge SDK t
 To learn more about the Looking Glass and how it works, click [here](https://docs.lookingglassfactory.com/keyconcepts/how-it-works). 
 
 ## Examples
+Both examples are written in C++, and render a cube using OpenGL and GLFW. Click and drag to rotate the cube, and use the scroll wheel to change the focus distance.
 
-C++ samples are labeled "Native" all other samples are using C#
+```BridgeSDKSampleNative```
 
-Any sample labeled "Interactive" uses a window created in the sample to render to the Looking Glass. This is intended for applications where there will not be a 2D window showing on the users 2D display.
+This sample uses a 2D window for interaction and renders a 3D version of the view to the looking glass. This allows bridge to handle the 3D window management for you!
 
-OpenGL Samples:
-- BridgeInProcSample
-- BridgeInProcSampleOSX
-- BridgeInProcSampleNative
-- BridgeInProcSampleNativeInteractive
+```BridgeSDKSampleNativeInteractive```
 
-DirectX Samples:
-- BridgeInProcSampleDX11
-- BridgeInProcSampleDX11Interactive
-- BridgeInProcSampleDX12
-- BridgeInProcSampleDX12Interactive
-
-Metal Samples:
-- BridgeInProcSampleOSXMetal_arm64
-- BridgeInProcSampleOSXMetal_x86_64
-- BridgeInProcSampleMetalNativeInteractive
+This sample allows for interaction in the 3D window, but requires the developer to manage positioning and sizing the 3D window correctly.
 
 ## Building Samples:
 
 Native samples are built using cmake:
 
 ```bash
-cd BridgeInProcSampleNative
+cd BridgeSDKSampleNative
 mkdir build
 cd build
 cmake ..
 cd ..
 cmake --build ./build
-```
-
-All other sample directories contain a dotnet solution:
-
-```bash
-cd BridgeInProcSample
-dotnet workload restore
-dotnet restore
-dotnet build
-dotnet run
 ```
 
 ## Questions

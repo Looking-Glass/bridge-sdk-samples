@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "BridgeInProcSample": {
-      "commandName": "Project",
-      "nativeDebugging": true
-    }
-  }
-}

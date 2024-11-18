@@ -5,7 +5,7 @@
 #include <string.h>
 #include <bridge.h>
 #include <bridge_utils.hpp>
-#include <LKGCamera.h>
+#include <LKGCamera.hpp>
 #include <memory>
 #include <codecvt>
 #include <locale>

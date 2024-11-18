@@ -136,10 +136,9 @@ public:
 class LKGCamera
 {
 public:
-    // Public variables for camera parameters
-    float size;           // Half-height of focal plane
-    Vector3 center;       // Camera target (center)
-    Vector3 up;           // Up vector
+    float size;        // Half-height of focal plane
+    Vector3 center;    // Camera target (center)
+    Vector3 up;        // Up vector
     float fov;         // Field of view in degrees
     float viewcone;    // Degrees from leftmost view to rightmost view, should be determined by display
     float aspectRatio; // Aspect ratio of the viewport

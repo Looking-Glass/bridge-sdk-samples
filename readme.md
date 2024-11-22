@@ -4,7 +4,7 @@ The Looking Glass Bridge SDK unlocks the ability to integrate your existing 3D s
 
 The SDK comes in two different flavors:
 
-- Native dynamic libraries for Windows, Mac, and Linux (contained in this repository)
+- Native dynamic libraries for Windows, Mac (contained in this repository)
 - JavaScript for web or Node development using webxr, which you can [access here](https://github.com/Looking-Glass/looking-glass-webxr)
 
 ## Prerequisites 

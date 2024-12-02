@@ -4,6 +4,8 @@
 #include "ogl.h"
 #include <string>
 #include <iostream>
+
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h" // Include stb_image for image loading
 
 class Texture {

@@ -9,6 +9,11 @@ typedef void (*PFNGLGENTEXTURESPROC)(GLsizei n, GLuint* textures);
 typedef void (*PFNGLBINDTEXTUREPROC)(GLenum target, GLuint texture);
 typedef void (*PFNGLTEXPARAMETERIPROC)(GLenum target, GLenum pname, GLint param);
 typedef void (*PFNGLGENERATEMIPMAPPROC)(GLenum target);
+typedef void (*PFNGLACTIVETEXTUREPROC)(GLenum texture);
+typedef GLenum (*PFNGLCHECKFRAMEBUFFERSTATUSPROC)(GLenum target);
+typedef void (*PFNGLVIEWPORTPROC)(GLint x, GLint y, GLsizei width, GLsizei height);
+typedef void (*PFNGLCLEARPROC)(GLbitfield mask);
+typedef void (*PFNGLDELETETEXTURESPROC)(GLsizei n, const GLuint* textures);
 
 #ifdef __APPLE__
 typedef void (*PFNGLGENBUFFERSPROC)(GLsizei, GLuint*);
@@ -77,6 +82,11 @@ namespace ogl
     PFNGLBINDTEXTUREPROC           glBindTexture = nullptr;
     PFNGLTEXPARAMETERIPROC         glTexParameteri = nullptr;
     PFNGLGENERATEMIPMAPPROC        glGenerateMipmap = nullptr;
+    PFNGLACTIVETEXTUREPROC glActiveTexture = nullptr;
+    PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus = nullptr;
+    PFNGLVIEWPORTPROC glViewport = nullptr;
+    PFNGLCLEARPROC glClear = nullptr;
+    PFNGLDELETETEXTURESPROC glDeleteTextures = nullptr;
 
     void loadOpenGLFunctions() 
     {
@@ -121,6 +131,11 @@ namespace ogl
         glBindTexture = (PFNGLBINDTEXTUREPROC)glfwGetProcAddress("glBindTexture");
         glTexParameteri = (PFNGLTEXPARAMETERIPROC)glfwGetProcAddress("glTexParameteri");
         glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC)glfwGetProcAddress("glGenerateMipmap");
+        glActiveTexture = (PFNGLACTIVETEXTUREPROC)glfwGetProcAddress("glActiveTexture");
+        glCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC)glfwGetProcAddress("glCheckFramebufferStatus");
+        glViewport = (PFNGLVIEWPORTPROC)glfwGetProcAddress("glViewport");
+        glClear = (PFNGLCLEARPROC)glfwGetProcAddress("glClear");
+        glDeleteTextures = (PFNGLDELETETEXTURESPROC)glfwGetProcAddress("glDeleteTextures");
     }
 
     GLuint loadShader(const char* source, GLenum type) 

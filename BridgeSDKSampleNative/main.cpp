@@ -5,17 +5,23 @@
 #include <string.h>
 #include <bridge.h>
 #include <bridge_utils.hpp>
-#include <LKGCamera.h>
 #include <memory>
 #include <codecvt>
 #include <locale>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <vector>
+
 #include "shader.h"
 #include "mesh.h"
 #include "texture.h"
+#include "renderer.h"
+#include "shaderManager.h"
+#include "gameWindow.h"
+
+#include "MeshGenerator.h"
 
 #ifdef _WIN32
 #pragma optimize("", off)
@@ -33,26 +39,11 @@ float angleX = 0.0f, angleY = 0.0f;
 float focus = -0.5f;
 float depthiness = 1.0f;
 
-void drawScene(Shader shaderProgram, Mesh& mesh, LKGCamera& camera, float normalizedView = 0.5f, bool invert = false, float depthiness = 0.0f, float focus = 0.0f)
-{
-    shaderProgram.use();
-    
-    // Compute view and projection matrices using LKGCamera
-    Matrix4 viewMatrix;
-    Matrix4 projectionMatrix;
-    camera.computeViewProjectionMatrices(normalizedView, invert, depthiness, focus, viewMatrix, projectionMatrix);
-
-    // Compute the model matrix (e.g., rotating cube)
-    Matrix4 modelMatrix = camera.getModelMatrix(angleX, angleY);
-
-    // Set uniforms
-    shaderProgram.setMat4("model", modelMatrix.m);
-    shaderProgram.setMat4("view", viewMatrix.m);
-    shaderProgram.setMat4("projection", projectionMatrix.m);
-
-    // Draw the object
-    mesh.draw();
-}
+Vector3 globalTarget = Vector3(0.0f, 0.0f, 0.0f); // Focus point
+Vector3 globalEye = Vector3(0.0f, 0.0f, 5.0f);    // Camera position
+Vector3 globalUp = Vector3(0.0f, 1.0f, 0.0f);     // Up direction
+glm::quat cameraOrientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f); // Identity quaternion
+float moveSpeed = 0.1f;                           // Movement speed
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) 
 {
@@ -78,11 +69,32 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
         float yoffset = float(ypos - lastY);
         lastX = xpos;
         lastY = ypos;
-        angleX += yoffset * 0.005f; // Sensitivity
-        angleY += xoffset * 0.005f; // Sensitivity
+
+        float sensitivity = 0.005f;
+        xoffset *= sensitivity;
+        yoffset *= sensitivity;
+
+        glm::vec3 up = glm::vec3(globalUp.x, globalUp.y, globalUp.z);
+        glm::vec3 eye = glm::vec3(globalEye.x, globalEye.y, globalEye.z);
+        glm::vec3 target = glm::vec3(globalTarget.x, globalTarget.y, globalTarget.z);
+
+        // Create rotation quaternions for yaw (around global up) and pitch (around right vector)
+        glm::quat yaw = glm::angleAxis(-xoffset, up); 
+        glm::vec3 cameraRight = glm::normalize(glm::cross(up, (target - eye)));
+        glm::quat pitch = glm::angleAxis(-yoffset, cameraRight);
+
+        // Combine rotations and update orientation
+        cameraOrientation = glm::normalize(yaw * cameraOrientation * pitch);
+        cameraOrientation = glm::normalize(cameraOrientation);
+        
+        // Update camera position and target
+        float distance = glm::length(eye - target);
+        glm::vec3 forward = glm::rotate(cameraOrientation, glm::vec3(0.0f, 0.0f, -1.0f));
+        eye = target - forward * distance;
+
+        globalEye = Vector3(eye.x, eye.y, eye.z);
     }
 }
-
 // Scroll callback function
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
@@ -91,163 +103,67 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     depthiness += static_cast<float>(xoffset) * 0.075f; // Sensitivity
 }
 
+void processInput(GLFWwindow* window) 
+{
+    Vector3 forward = (globalTarget - globalEye).normalized(); // Forward direction
+    Vector3 right = Vector3::cross(forward, globalUp).normalized(); // Right direction
+
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+        globalTarget += globalUp * moveSpeed; // Move Up
+        globalEye += globalUp * moveSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+        globalTarget -= globalUp * moveSpeed; // Move Down
+        globalEye -= globalUp * moveSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        globalTarget += forward * moveSpeed; // Move forward
+        globalEye += forward * moveSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        globalTarget -= forward * moveSpeed; // Move backward
+        globalEye -= forward * moveSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        globalTarget -= right * moveSpeed; // Pan left
+        globalEye -= right * moveSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        globalTarget += right * moveSpeed; // Pan right
+        globalEye += right * moveSpeed;
+    }
+
+    // Update globalUp to remain perpendicular
+    globalUp = Vector3::cross(right, forward).normalized();
+}
+
 int main(void)
 {
-    GLFWwindow* window;
-
-    if (!glfwInit())
-        return -1;
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    window = glfwCreateWindow(800, 800, "Bridge SDK Native Sample -- No Device Connected!", nullptr, nullptr);
-    
-    if (!window) 
-    {
-        glfwTerminate();
+    GameWindow gameWindow(800, 800, "Bridge SDK Native Sample");
+    if (!gameWindow.initialize()) {
         return -1;
     }
 
-    glfwMakeContextCurrent(window);
-    ogl::loadOpenGLFunctions();
-
-    // Create the controller
-    std::unique_ptr<Controller> controller = std::make_unique<Controller>();
-
-#ifdef _WIN32
-    if (!controller->Initialize(L"BridgeSDKSampleNative"))
-#else
-    if (!controller->Initialize("BridgeSDKSampleNative"))
-#endif
-    {
-        controller = nullptr;
-    }
-
-    WINDOW_HANDLE wnd = 0;
-    std::vector<DisplayInfo> displays;
-
-    if (controller)
-    {
-        // Get display information list
-        displays = controller->GetDisplayInfoList();
-
-        // Print all display names
-        for (const auto& displayInfo : displays)
-        {
-            std::wcout << displayInfo.name << std::endl;
-        }
-
-        // For now we will use the first looking glass display
-        if (!displays.empty() && controller->InstanceWindowGL(&wnd, displays[0].display_id))
-        {
-            // Successfully created the window handle
-        }
-        else
-        {
-            wnd = 0;
-        }
-    }
-    
-    BridgeWindowData bridgeData = controller ? controller->GetWindowData(wnd) : BridgeWindowData();
-    bool isBridgeDataInitialized = (bridgeData.wnd != 0);
-
-    // Update window size and title if BridgeData is initialized
-    if (isBridgeDataInitialized)
-    {
-        // Find display info for the window title based on display index
-        auto displayInfoIt = std::find_if(
-            displays.begin(),
-            displays.end(),
-            [&bridgeData](const DisplayInfo& info)
-            {
-                return info.display_id == bridgeData.display_index;
-            }
-        );
-
-        if (displayInfoIt != displays.end())
-        {
-            std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-            std::string window_title = "Bridge SDK Native Sample -- " +
-                converter.to_bytes(displayInfoIt->name) +
-                " : " + converter.to_bytes(displayInfoIt->serial);
-            glfwSetWindowTitle(window, window_title.c_str());
-        }
-
-        // set 2d window to be half the size of the looking glass display we are outputting to 
-        int window_width  = (int)bridgeData.output_width / 2;
-        int window_height = (int)bridgeData.output_height / 2;
-
-        glfwSetWindowSize(window, window_width, window_height);
-    }
+    GLFWwindow* window = gameWindow.getWindow();
+    const BridgeWindowData& bridgeData = gameWindow.getBridgeData();
+    bool isBridgeDataInitialized = gameWindow.isBridgeInitialized();
 
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    float size = 10.0f;
-    Vector3 target = Vector3(0.0f, 0.0f, 0.0f);
-    Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
+    Renderer renderer(800, 800, isBridgeDataInitialized, bridgeData);
 
-    // fov should not be viewcone, they are separate!
-    // float fov = isBridgeDataInitialized ? bridgeData.viewcone : 45.0f;
-    float fov = 14.0f;
-    float viewcone = isBridgeDataInitialized ? bridgeData.viewcone : 40.0f;
-    float aspect = isBridgeDataInitialized ? bridgeData.displayaspect : 1.0f;
-    float nearPlane = 0.1f;
-    float farPlane = 100.0f;
-
-    // LKGCamera camera = LKGCamera(position, target, up, fov, aspect, nearPlane, farPlane);
-    LKGCamera camera = LKGCamera(size, target, up, fov, viewcone, aspect, nearPlane, farPlane);
-
-    // Initialize OpenGL textures and framebuffers
-    GLuint render_texture = 0;
-    GLuint render_fbo = 0;
-    GLuint depth_buffer = 0;
-
-    if (isBridgeDataInitialized)
-    {
-        // Initialize OpenGL textures and framebuffers using bridgeData's quilt dimensions
-        glGenTextures(1, &render_texture);
-        glBindTexture(GL_TEXTURE_2D, render_texture);
-        ogl::glTexImage2D(GL_TEXTURE_2D, 
-                        0, 
-                        GL_RGBA, 
-                        bridgeData.quilt_width, 
-                        bridgeData.quilt_height, 
-                        0, 
-                        GL_RGBA,
-                        GL_UNSIGNED_BYTE, 
-                        nullptr); 
-
-        // Generate and bind the renderbuffer for depth
-        ogl::glGenRenderbuffers(1, &depth_buffer);
-        ogl::glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer); 
-
-        // Create a depth buffer
-        ogl::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32, bridgeData.quilt_width, bridgeData.quilt_height);
-
-        // Generate the framebuffer
-        ogl::glGenFramebuffers(1, &render_fbo);
-        ogl::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo);
-
-        // Attach the texture to the framebuffer as a color attachment
-        ogl::glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_texture, 0);
-
-        // Attach the renderbuffer as a depth attachment
-        ogl::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_buffer);
-
-        ogl::glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        ogl::glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    if (isBridgeDataInitialized) {
+        renderer.initializeQuilt(bridgeData.vx, bridgeData.vy, bridgeData.view_width, bridgeData.view_height);
+        //renderer.initializeQuilt(10, 10, 1920, 1080);
     }
 
-    Shader shaderProgram("Assets/default.vert.glsl", "Assets/default.frag.glsl");
-    shaderProgram.use();
+    ShaderManager& shaderManager = ShaderManager::getInstance();
+    shaderManager.setShaderPath("C:\\Repos\\LookingGlassBridge\\test_harnesses\\LookingGlassBridgeSDKExamples\\BridgeSDKSampleNative\\build\\Debug\\Assets");
+    shaderManager.setShaderPath("Assets");
 
-    //Mesh cubeMesh = Mesh::createCube();
-    Mesh cubeMesh = Mesh::loadObj("C:\\Repos\\LookingGlassBridge\\test_harnesses\\LookingGlassBridgeSDKExamples\\BridgeSDKSampleNative\\build\\Debug\\Assets\\objs\\12221_Cat_v1_l3.obj");
+    Shader& shaderProgram = shaderManager.getShader("normal"); 
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -259,67 +175,43 @@ int main(void)
     glPolygonMode(GL_FRONT, GL_FILL);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    int quiltX = bridgeData.vx;
-    int quiltY = bridgeData.vy;
-    int totalViews = bridgeData.vx * bridgeData.vy;
+    Mesh cubeMesh = MeshGenerator::createCube();
+    Mesh catMesh = Mesh::loadObj("C:\\Repos\\LookingGlassBridge\\test_harnesses\\LookingGlassBridgeSDKExamples\\BridgeSDKSampleNative\\build\\Debug\\Assets\\objs\\12221_Cat_v1_l3.obj",
+                                   "C:\\Repos\\LookingGlassBridge\\test_harnesses\\LookingGlassBridgeSDKExamples\\BridgeSDKSampleNative\\build\\Debug\\Assets\\objs\\Cat_diffuse.jpg");
+    
+    std::vector<Mesh> sceneMeshes;
+    sceneMeshes.push_back(std::move(cubeMesh));
+    sceneMeshes.push_back(std::move(catMesh));
+
+    renderer.setMeshes(std::move(sceneMeshes));
 
     // Rendering loop
     while (!glfwWindowShouldClose(window))
     {
+        processInput(window);
+
+        renderer.setWorldCamera(globalEye, globalTarget, globalUp);
+        
         // Draw to primary head
-        ogl::glBindFramebuffer(GL_FRAMEBUFFER, 0);
         int fbWidth = 0, fbHeight = 0;
         glfwGetFramebufferSize(window, &fbWidth, &fbHeight);  
-        glViewport(0, 0, fbWidth, fbHeight);
+        renderer.beginRender(false); // Render to the default framebuffer
+        renderer.setViewport(0, 0, fbWidth, fbHeight);
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        renderer.renderScene(shaderProgram);
 
-        drawScene(shaderProgram, cubeMesh, camera);
-        
         glfwSwapBuffers(window);
 
-        if (isBridgeDataInitialized)
-        {
-            // Draw the quilt views for the hologram
-            ogl::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo);
+        if (isBridgeDataInitialized) {
+            renderer.renderQuilt(shaderProgram, depthiness, focus);
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            for (int y = 0; y < quiltY; y++)
-            {
-                for (int x = 0; x < quiltX; x++)
-                {
-                    int invertedY = quiltY - 1 - y;
-                    glViewport(x * bridgeData.view_width, invertedY * bridgeData.view_height, bridgeData.view_width, bridgeData.view_height);
-
-                    int viewIndex = y * quiltX + x;
-                    float normalizedView = static_cast<float>(viewIndex) / static_cast<float>(totalViews - 1);
-
-                    drawScene(shaderProgram, cubeMesh, camera, normalizedView, true, depthiness, focus);
-                }
-            }
-
-            controller->DrawInteropQuiltTextureGL(bridgeData.wnd, render_texture, PixelFormats::RGBA,
-                                                bridgeData.quilt_width, bridgeData.quilt_height,
-                                                quiltX, quiltY, bridgeData.displayaspect, 1.0f);
+            gameWindow.controller->DrawInteropQuiltTextureGL(bridgeData.wnd, renderer.getQuiltTexture(), PixelFormats::RGBA,
+                                                renderer.quiltWidth, renderer.quiltHeight,
+                                                renderer.quiltX, renderer.quiltY, bridgeData.displayaspect, 1.0f);
         }
 
         glfwPollEvents();
     }
-
-    // Cleanup
-    if (controller)
-    {
-        controller->Uninitialize();
-    }
-
-    // Delete OpenGL resources
-    glDeleteTextures(1, &render_texture);
-    ogl::glDeleteRenderbuffers(1, &depth_buffer);
-    ogl::glDeleteFramebuffers(1, &render_fbo);
-    ogl::glDeleteProgram(shaderProgram.ID);
-
-    glfwTerminate();
 
     return 0;
 }

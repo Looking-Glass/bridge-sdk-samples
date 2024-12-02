@@ -1,6 +1,13 @@
 #version 330 core
-in vec3 vertexColor;
+
+in vec2 TexCoords;     // Input texture coordinates from vertex shader
+in vec3 Normal;     // Input texture coordinates from vertex shader
+
+uniform sampler2D textureSampler; // Texture sampler
+
 out vec4 FragColor;
+
 void main() {
-    FragColor = vec4(vertexColor, 1.0);
+    // Sample the texture and output the color
+    FragColor = texture(textureSampler, TexCoords);
 }

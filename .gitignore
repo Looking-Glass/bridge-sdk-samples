@@ -9,3 +9,4 @@ BridgeSDKSampleNativeInteractive/build/
 BridgeSDKSampleOSX/build/
 BridgeSDKSampleOSXMetal_arm64/build/
 BridgeSDKSampleOSXMetal_x86_64/build/
+/BridgeSDKSample/.vs/BridgeSDKSample

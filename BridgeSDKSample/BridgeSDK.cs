@@ -74,11 +74,321 @@ namespace BridgeSDK
         public float BOffsetX;
         public float BOffsetY;
     }
+    // Supporting struct for dimensions
+    public struct Dim
+    {
+        public ulong Width;
+        public ulong Height;
+    }
+
+    // Supporting struct for calibration data
+    public struct LKGCalibration
+    {
+        public float Center;
+        public float Pitch;
+        public float Slope;
+        public int Width;
+        public int Height;
+        public float Dpi;
+        public float FlipX;
+        public int InvView;
+        public float Viewcone;
+        public float Fringe;
+        public int CellPatternMode;
+        public float[] Cells;
+    }
+
+    // Supporting struct for default quilt settings
+    public struct DefaultQuiltSettings
+    {
+        public float Aspect;
+        public int QuiltWidth;
+        public int QuiltHeight;
+        public int QuiltColumns;
+        public int QuiltRows;
+    }
+
+    public struct WindowPos
+    {
+        public long X;
+        public long Y;
+    }
+
+
+    // Ported DisplayInfo struct
+    public struct DisplayInfo
+    {
+        public uint DisplayId;
+        public string Serial;
+        public string Name;
+        public Dim Dimensions;
+        public int HwEnum;
+        public LKGCalibration Calibration;
+        public int Viewinv;
+        public int Ri;
+        public int Bi;
+        public float Tilt;
+        public float Aspect;
+        public float Fringe;
+        public float Subp;
+        public float Viewcone;
+        public float Center;
+        public float Pitch;
+        public DefaultQuiltSettings DefaultQuiltSettings;
+        public WindowPos WindowPosition;
+    }
+
+    // Ported BridgeWindowData struct
+    public class BridgeWindowData
+    {
+        public Window Wnd;
+        public ulong DisplayIndex;
+        public float Viewcone;
+        public int DeviceType;
+        public float Aspect;
+        public int QuiltWidth;
+        public int QuiltHeight;
+        public int Vx;
+        public int Vy;
+        public uint OutputWidth;
+        public uint OutputHeight;
+        public int ViewWidth;
+        public int ViewHeight;
+        public int Invview;
+        public int Ri;
+        public int Bi;
+        public float Tilt;
+        public float DisplayAspect;
+        public float Fringe;
+        public float Subp;
+        public float Pitch;
+        public float Center;
+        public WindowPos WindowPosition;
+
+        // Constructor to set default values (since structs cannot have field initializers)
+        public BridgeWindowData()
+        {
+            Wnd = 0;
+            DisplayIndex = 0;
+            Viewcone = 0.0f;
+            DeviceType = 0;
+            Aspect = 0.0f;
+            QuiltWidth = 0;
+            QuiltHeight = 0;
+            Vx = 0;
+            Vy = 0;
+            OutputWidth = 800;
+            OutputHeight = 600;
+            ViewWidth = 0;
+            ViewHeight = 0;
+            Invview = 0;
+            Ri = 0;
+            Bi = 0;
+            Tilt = 0.0f;
+            DisplayAspect = 0.0f;
+            Fringe = 0.0f;
+            Subp = 0.0f;
+            Pitch = 0.0f;
+            Center = 0.0f;
+            WindowPosition = new WindowPos();
+        }
+    }
+
+
     #endregion
 
     public partial class Controller
     {
         public const string BridgeVersion = "2.5.1";
+
+        public static void PopulateWindowValues(BridgeWindowData bridgeData, Window wnd)
+        {
+            GetDeviceType(wnd, ref bridgeData.DeviceType);
+            GetDefaultQuiltSettings(wnd, ref bridgeData.Aspect, ref bridgeData.QuiltWidth,
+                                        ref bridgeData.QuiltHeight, ref bridgeData.Vx, ref bridgeData.Vy);
+            GetWindowDimensions(wnd, ref bridgeData.OutputWidth, ref bridgeData.OutputHeight);
+            GetViewCone(wnd, ref bridgeData.Viewcone);
+            GetInvView(wnd, ref bridgeData.Invview);
+            GetRi(wnd, ref bridgeData.Ri);
+            GetBi(wnd, ref bridgeData.Bi);
+            GetTilt(wnd, ref bridgeData.Tilt);
+            GetDisplayAspect(wnd, ref bridgeData.DisplayAspect);
+            GetFringe(wnd, ref bridgeData.Fringe);
+            GetSubp(wnd, ref bridgeData.Subp);
+            GetPitch(wnd, ref bridgeData.Pitch);
+            GetCenter(wnd, ref bridgeData.Center);
+            GetWindowPosition(wnd, ref bridgeData.WindowPosition.X, ref bridgeData.WindowPosition.Y);
+        }
+
+        private static void PopulateSingleDisplayInfo(uint display_id, ref DisplayInfo info)
+        {
+            info.DisplayId = display_id;
+
+            int serial_count = 0;
+            GetDeviceSerialForDisplay(display_id, ref serial_count, IntPtr.Zero);
+            if (serial_count > 0)
+            {
+                // Allocate unmanaged memory for the serial buffer
+                int serialBufferSize = serial_count * sizeof(char);
+                IntPtr serialBufferPtr = Marshal.AllocHGlobal(serialBufferSize);
+                try
+                {
+                    // Call the function with the allocated buffer
+                    GetDeviceSerialForDisplay(display_id, ref serial_count, serialBufferPtr);
+
+                    // Marshal the unmanaged buffer to a C# string (assuming UTF-16 encoding)
+                    info.Serial = Marshal.PtrToStringUni(serialBufferPtr, serial_count);
+                }
+                finally
+                {
+                    // Free the unmanaged memory
+                    Marshal.FreeHGlobal(serialBufferPtr);
+                }
+            }
+
+            int name_count = 0;
+            GetDeviceNameForDisplay(display_id, ref name_count, IntPtr.Zero);
+            if (name_count > 0)
+            {
+                // Allocate unmanaged memory for the name buffer
+                int nameBufferSize = name_count * sizeof(char);
+                IntPtr nameBufferPtr = Marshal.AllocHGlobal(nameBufferSize);
+                try
+                {
+                    // Call the function with the allocated buffer
+                    GetDeviceNameForDisplay(display_id, ref name_count, nameBufferPtr);
+
+                    // Marshal the unmanaged buffer to a C# string (assuming UTF-16 encoding)
+                    info.Name = Marshal.PtrToStringUni(nameBufferPtr, name_count);
+                }
+                finally
+                {
+                    // Free the unmanaged memory
+                    Marshal.FreeHGlobal(nameBufferPtr);
+                }
+            }
+
+            GetDimensionsForDisplay(display_id, ref info.Dimensions.Width, ref info.Dimensions.Height);
+            GetDeviceTypeForDisplay(display_id, ref info.HwEnum);
+
+            int number_of_cells = 0;
+            GetCalibrationForDisplay(display_id,
+                ref info.Calibration.Center,
+                ref info.Calibration.Pitch,
+                ref info.Calibration.Slope,
+                ref info.Calibration.Width,
+                ref info.Calibration.Height,
+                ref info.Calibration.Dpi,
+                ref info.Calibration.FlipX,
+                ref info.Calibration.InvView,
+                ref info.Calibration.Viewcone,
+                ref info.Calibration.Fringe,
+                ref info.Calibration.CellPatternMode,
+                ref number_of_cells,
+                IntPtr.Zero);
+
+            if (number_of_cells > 0)
+            {
+                // Allocate unmanaged memory for the cells buffer
+                int cellsBufferSize = number_of_cells * sizeof(float);
+                IntPtr cellsBufferPtr = Marshal.AllocHGlobal(cellsBufferSize);
+                try
+                {
+                    // Call the function with the allocated buffer
+                    GetCalibrationForDisplay(display_id,
+                        ref info.Calibration.Center,
+                        ref info.Calibration.Pitch,
+                        ref info.Calibration.Slope,
+                        ref info.Calibration.Width,
+                        ref info.Calibration.Height,
+                        ref info.Calibration.Dpi,
+                        ref info.Calibration.FlipX,
+                        ref info.Calibration.InvView,
+                        ref info.Calibration.Viewcone,
+                        ref info.Calibration.Fringe,
+                        ref info.Calibration.CellPatternMode,
+                        ref number_of_cells,
+                        cellsBufferPtr);
+
+                    // Initialize the managed array
+                    info.Calibration.Cells = new float[number_of_cells];
+
+                    // Copy data from unmanaged memory to managed array
+                    Marshal.Copy(cellsBufferPtr, info.Calibration.Cells, 0, number_of_cells);
+                }
+                finally
+                {
+                    // Free the unmanaged memory
+                    Marshal.FreeHGlobal(cellsBufferPtr);
+                }
+            }
+
+            GetInvViewForDisplay(display_id, ref info.Viewinv);
+            GetRiForDisplay(display_id, ref info.Ri);
+            GetBiForDisplay(display_id, ref info.Bi);
+            GetTiltForDisplay(display_id, ref info.Tilt);
+            GetDisplayAspectForDisplay(display_id, ref info.Aspect);
+            GetFringeForDisplay(display_id, ref info.Fringe);
+            GetSubpForDisplay(display_id, ref info.Subp);
+            GetViewConeForDisplay(display_id, ref info.Viewcone);
+            GetCenterForDisplay(display_id, ref info.Center);
+            GetPitchForDisplay(display_id, ref info.Pitch);
+            GetDefaultQuiltSettingsForDisplay(display_id,
+                ref info.DefaultQuiltSettings.Aspect,
+                ref info.DefaultQuiltSettings.QuiltWidth,
+                ref info.DefaultQuiltSettings.QuiltHeight,
+                ref info.DefaultQuiltSettings.QuiltColumns,
+                ref info.DefaultQuiltSettings.QuiltRows);
+            GetWindowPositionForDisplay(display_id, ref info.WindowPosition.X, ref info.WindowPosition.Y);
+        }
+
+        private static void PopulateDisplayInfos(List<DisplayInfo> displayInfos)
+        {
+            int display_count = 0;
+            GetDisplays(ref display_count, null);
+
+            if (display_count > 0)
+            {
+                ulong[] display_ids = new ulong[display_count];
+                GetDisplays(ref display_count, display_ids);
+
+                foreach (uint display_id in display_ids)
+                {
+                    DisplayInfo info = new DisplayInfo();
+                    PopulateSingleDisplayInfo(display_id, ref info);
+                    displayInfos.Add(info);
+                }
+            }
+        }
+
+        public static BridgeWindowData GetWindowData(Window wnd)
+        {
+            BridgeWindowData bridgeData = new BridgeWindowData();
+            bridgeData.Wnd = wnd;
+
+            if (bridgeData.Wnd != 0)
+            {
+                GetDisplayForWindow(bridgeData.Wnd, ref bridgeData.DisplayIndex);
+                PopulateWindowValues(bridgeData, bridgeData.Wnd);
+
+                bridgeData.ViewWidth = (int)((float)bridgeData.QuiltWidth / (float)bridgeData.Vx);
+                bridgeData.ViewHeight = (int)((float)bridgeData.QuiltHeight / (float)bridgeData.Vy);
+            }
+            else
+            {
+                // Invalid window handle
+            }
+
+            return bridgeData;
+        }
+
+        public static List<DisplayInfo> GetDisplayInfoList()
+        {
+            List<DisplayInfo> displayInfos = new List<DisplayInfo>();
+            PopulateDisplayInfos(displayInfos);
+            return displayInfos;
+        }
+
 
         public static string SettingsPath()
         {
@@ -168,7 +478,19 @@ namespace BridgeSDK
                 }
             }
 
-            return ret;  // Return an empty string if no matching version found
+            // If not found in settings.json, construct default path for Windows
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                string constructedPath = Path.Combine(programFiles, "Looking Glass", $"Looking Glass Bridge {requestedVersion}");
+                if (Directory.Exists(constructedPath))
+                {
+                    return constructedPath;
+                }
+            }
+
+            // Return an empty string if no matching version found
+            return ret;
         }
 
         private static PlatformID GetPlatformID()
@@ -253,13 +575,13 @@ namespace BridgeSDK
         private delegate bool RegisterTextureDXDelegate(Window wnd, IntPtr texture);
         private delegate bool UnregisterTextureDXDelegate(Window wnd, IntPtr texture);
         private delegate bool SaveTextureToFileDXDelegate(Window wnd, [MarshalAs(UnmanagedType.LPWStr)] string filename, IntPtr texture);
-        private delegate bool DrawInteropQuiltTextureDXDelegate(Window wnd, IntPtr texture, uint vx, uint vy, float aspect, float zoom);        
+        private delegate bool DrawInteropQuiltTextureDXDelegate(Window wnd, IntPtr texture, uint vx, uint vy, float aspect, float zoom);
         private delegate bool GetCalibrationDelegate(Window wnd, ref float center, ref float pitch, ref float slope, ref int width, ref int height, ref float dpi, ref float flip_x, ref int invView, ref float viewcone, ref float fringe, ref int cell_pattern_mode, ref int number_of_cells, IntPtr cells);
         private delegate bool ShowWindowDelegate(Window wnd, bool flag);
         private delegate bool CreateTextureDXDelegate(Window wnd, uint width, uint height, out IntPtr dx_texture);
         private delegate bool ReleaseTextureDXDelegate(Window wnd, IntPtr dx_texture);
         private delegate bool CopyTextureDXDelegate(Window wnd, IntPtr src, IntPtr dest);
-        private delegate bool SaveImageToFileDelegateUTF8(Window wnd, [MarshalAs(UnmanagedType.LPUTF8Str)]string filename, IntPtr image, PixelFormats format, ulong width, ulong height);
+        private delegate bool SaveImageToFileDelegateUTF8(Window wnd, [MarshalAs(UnmanagedType.LPUTF8Str)] string filename, IntPtr image, PixelFormats format, ulong width, ulong height);
         private delegate bool SaveImageToFileDelegateUTF16(Window wnd, [MarshalAs(UnmanagedType.LPWStr)] string filename, IntPtr image, PixelFormats format, ulong width, ulong height);
         private delegate bool DeviceFromResourceDXDelegate(IntPtr dx_resource, out IntPtr dx_device);
         private delegate bool ReleaseDeviceDXDelegate(IntPtr dx_device);
@@ -1039,8 +1361,8 @@ namespace BridgeSDK
             }
         }
 
-        public static bool GetCalibrationForDisplay(ulong display_index, ref float center, ref float pitch, ref float slope, ref int width, ref int height, 
-                                                    ref float dpi, ref float flip_x, ref int invView, ref float viewcone, ref float fringe, 
+        public static bool GetCalibrationForDisplay(ulong display_index, ref float center, ref float pitch, ref float slope, ref int width, ref int height,
+                                                    ref float dpi, ref float flip_x, ref int invView, ref float viewcone, ref float fringe,
                                                     ref int cell_pattern_mode, ref int number_of_cells, IntPtr cells)
         {
             try
@@ -1439,4 +1761,3 @@ namespace BridgeSDK
         private static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid rfid, uint dwFlags, IntPtr hToken, out IntPtr pszPath);
     }
 }
-

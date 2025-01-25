@@ -16,6 +16,8 @@ In order to render to use this SDK to render to Looking Glass display, your appl
 - Render multiple views to a texture
 - Pass that texture to the SDK
 
+**Note:** on Linux, we require X11 - Wayland is currently not supported.
+
 If you would like to have a single window interactive application you will also must be able to:
 
 - Generate a borderless fullscreen window at a specific position

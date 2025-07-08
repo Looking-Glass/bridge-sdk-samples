@@ -34,15 +34,15 @@ struct IUnknown;
 #endif
 
 #ifdef _WIN32
-    const static wchar_t BridgeVersion[] = L"2.5.1";
+    const static wchar_t BridgeVersion[] = L"2.6.2";
 #else
-    const static char BridgeVersion[] = "2.5.1";
+    const static char BridgeVersion[] = "2.6.2";
 #endif
 
 #ifdef _WIN32
-	const static wchar_t MinBridgeVersion[] = L"2.5.0";
+	const static wchar_t MinBridgeVersion[] = L"2.6.0";
 #else
-	const static char MinBridgeVersion[] = "2.5.0";
+	const static char MinBridgeVersion[] = "2.6.0";
 #endif
 
 const uint32_t FIRST_LOOKING_GLASS_DEVICE = -1;
@@ -277,6 +277,29 @@ extern "C" INTEROP_EXPORT bool set_interop_quilt_texture_gl(WINDOW_HANDLE wnd, u
 extern "C" INTEROP_EXPORT bool draw_interop_quilt_texture_gl(WINDOW_HANDLE wnd, unsigned long long texture, PixelFormats format, unsigned long width, unsigned long height, unsigned long vx, unsigned long vy, float aspect, float zoom);
 
 /**
+ * @brief triggers the Looking Glass optical transformation as a rendering post-processing step
+ * 
+ * For OpenGL applications, a GL texture must be assigned as the shared render target
+ * for use with draw_interop_rgbd_texture_gl. This function designates the input texture
+ * as the source of a color and depth map
+ * 
+ * @param wnd the pointer used to store the platform-specific window handle
+ * @param texture the texture handle to be shared between rendering contexts
+ * @param format the pixel format of the supplied texture
+ * @param width the width of the supplied texture
+ * @param height the height of the supplied texture
+ * @param vx the horizontal count of quilt views (columns) rendered to the texture
+ * @param vy the vertical count of quilt views (rows) rendered to the texture
+ * @param aspect the aspect ratio of the views
+ * @param zoom the optional zoom to be applied
+ * 
+ * @return FALSE for invalid configurations, TRUE otherwise
+ * 
+ * @see Controller::DrawInteropRGBDTextureGL
+ */
+extern "C" INTEROP_EXPORT bool draw_interop_rgbd_texture_gl(WINDOW_HANDLE wnd, unsigned long texture, PixelFormats format, unsigned int width, unsigned int height, unsigned int quiltWidth, unsigned int quiltHeight, unsigned int vx, unsigned int vy, float focus, float offset, float aspect, float zoom, int depth_loc);
+
+/**
  * @brief shows or hides the rending window based upon the input flag
  * 
  * @param wnd the pointer used to store the platform-specific window handle
@@ -338,6 +361,8 @@ extern "C" INTEROP_EXPORT bool register_texture_dx(WINDOW_HANDLE wnd, IUnknown *
 extern "C" INTEROP_EXPORT bool unregister_texture_dx(WINDOW_HANDLE wnd, IUnknown *dx_texture);
 extern "C" INTEROP_EXPORT bool save_texture_to_file_dx(WINDOW_HANDLE wnd, wchar_t* filename, IUnknown * dx_texture);
 extern "C" INTEROP_EXPORT bool draw_interop_quilt_texture_dx(WINDOW_HANDLE wnd, IUnknown * dx_texture, unsigned long vx, unsigned long vy, float aspect, float zoom);
+extern "C" INTEROP_EXPORT bool draw_interop_rgbd_texture_dx(WINDOW_HANDLE wnd, IUnknown * dx_texture, unsigned int width, unsigned int height, unsigned int quiltWidth, unsigned int quiltHeight, unsigned int vx, unsigned int vy, float focus, float offset, float aspect, float zoom, int depth_loc);
+
 extern "C" INTEROP_EXPORT bool create_texture_dx(WINDOW_HANDLE wnd, unsigned long width, unsigned long height, IUnknown **dx_texture);
 extern "C" INTEROP_EXPORT bool release_texture_dx(WINDOW_HANDLE wnd, IUnknown *dx_texture);
 extern "C" INTEROP_EXPORT bool copy_texture_dx(WINDOW_HANDLE wnd, IUnknown *src, IUnknown *dest);

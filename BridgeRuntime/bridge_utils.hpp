@@ -165,6 +165,101 @@ protected:
     std::string _libraryPath;
 #endif
 
+    // ---------------------------------------------------------------- telemetry --
+    // NOTE: These functions must be called before initializing bridge
+private:
+#ifdef _WIN32
+    bool ApplyTrackingSetting(bool disable)
+    {
+        const std::wstring settingsPath = SettingsPath();
+        const std::wstring newVal = disable ? L"false" : L"true";
+
+        std::wifstream in(settingsPath);
+        std::wstringstream buf;
+        if (in) buf << in.rdbuf();
+        std::wstring json = buf.str();
+        in.close();
+
+        const std::wstring key = L"\"enable_utilization_telemetry\"";
+        bool changed = false;
+
+        size_t k = json.find(key);
+        if (k != std::wstring::npos)                                           // key exists patch value
+        {
+            size_t colon = json.find(L":", k + key.length());
+            size_t v0 = json.find_first_of(L"\"tf", colon + 1);
+            size_t v1 = json.find_first_of(L",}\n\r", v0);
+            if (v0 != std::wstring::npos && v1 != std::wstring::npos &&
+                json.substr(v0, v1 - v0).find(newVal) == std::wstring::npos)
+            {
+                json.replace(v0, v1 - v0, newVal);
+                changed = true;
+            }
+        }
+        else                                                                   // key missing insert
+        {
+            size_t brace = json.find_last_of(L'}');
+            std::wstring ins = L"\n    \"enable_utilization_telemetry\": " + newVal + L",\n";
+            if (brace != std::wstring::npos) json.insert(brace, ins);
+            else json = L"{\n    \"enable_utilization_telemetry\": " + newVal + L"\n}\n";
+            changed = true;
+        }
+
+        if (changed)
+        {
+            std::wofstream out(settingsPath);
+            if (!out) return false;
+            out << json;
+        }
+        return true;
+}
+#else
+    bool ApplyTrackingSetting(bool disable)
+    {
+        const std::string settingsPath = SettingsPath();
+        const std::string newVal = disable ? "false" : "true";
+
+        std::ifstream in(settingsPath);
+        std::stringstream buf;
+        if (in) buf << in.rdbuf();
+        std::string json = buf.str();
+        in.close();
+
+        const std::string key = "\"enable_utilization_telemetry\"";
+        bool changed = false;
+
+        size_t k = json.find(key);
+        if (k != std::string::npos)                                            // key exists patch value
+        {
+            size_t colon = json.find(":", k + key.length());
+            size_t v0 = json.find_first_of("\"tf", colon + 1);
+            size_t v1 = json.find_first_of(",}\n\r", v0);
+            if (v0 != std::string::npos && v1 != std::string::npos &&
+                json.substr(v0, v1 - v0).find(newVal) == std::string::npos)
+            {
+                json.replace(v0, v1 - v0, newVal);
+                changed = true;
+            }
+        }
+        else                                                                   // key missing insert
+        {
+            size_t brace = json.find_last_of('}');
+            std::string ins = "\n    \"enable_utilization_telemetry\": " + newVal + ",\n";
+            if (brace != std::string::npos) json.insert(brace, ins);
+            else json = "{\n    \"enable_utilization_telemetry\": " + newVal + "\n}\n";
+            changed = true;
+        }
+
+        if (changed)
+        {
+            std::ofstream out(settingsPath);
+            if (!out) return false;
+            out << json;
+        }
+        return true;
+    }
+#endif
+
 public:
 #ifndef _WIN32
     std::string GetHomeDirectory()
@@ -417,10 +512,10 @@ public:
 #endif
 
 #ifdef _WIN32
-bool Initialize(const std::wstring& app_name, const std::wstring& desired_bridge_version = ::BridgeVersion)
+bool Initialize(const std::wstring& app_name, const std::wstring& desired_bridge_version = ::BridgeVersion, bool disableTracking = false)
 {
     std::wstring installPath = BridgeInstallLocation(desired_bridge_version);
-    bool initialized = InitializeWithPath(app_name, installPath);
+    bool initialized = InitializeWithPath(app_name, installPath, disableTracking);
 
     if (!initialized)
     {
@@ -453,15 +548,17 @@ bool Initialize(const std::string& app_name, const std::string& desired_bridge_v
 #endif
 
 #ifdef _WIN32
-    bool InitializeWithPath(const std::wstring& app_name, const std::wstring& manual_install_location)
+    bool InitializeWithPath(const std::wstring& app_name, const std::wstring& manual_install_location, bool disableTracking = false)
 #else
-    bool InitializeWithPath(const std::string& app_name, const std::string& manual_install_location)
+    bool InitializeWithPath(const std::string& app_name, const std::string& manual_install_location, bool disableTracking = false)
 #endif
     {
         if (manual_install_location.empty())
         {
             return false;
         }
+
+        ApplyTrackingSetting(disableTracking);
 
 #ifdef __APPLE__
         _libraryPath = (std::filesystem::path(manual_install_location) / "libbridge_inproc.dylib").string();
@@ -625,6 +722,18 @@ bool Initialize(const std::string& app_name, const std::string& desired_bridge_v
         }
 
         return func(wnd, texture, format, width, height, vx, vy, aspect, zoom);
+    }
+
+    bool DrawInteropRGBDTextureGL(WINDOW_HANDLE wnd, unsigned long texture, PixelFormats format, unsigned int width, unsigned int height, unsigned int quiltWidth, unsigned int quiltHeight, unsigned int vx, unsigned int vy, float focus, float offset, float aspect, float zoom, int depth_loc)
+    {
+        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, unsigned long, PixelFormats, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, float, float, float, float, int)>(_libraryPath, "draw_interop_rgbd_texture_gl");
+
+        if (!func)
+        {
+            return false;
+        }
+
+        return func(wnd, texture, format, width, height, quiltWidth, quiltHeight, vx, vy, focus, offset, aspect, zoom, depth_loc);
     }
 
     bool ShowWindow(WINDOW_HANDLE wnd, bool flag)
@@ -796,6 +905,21 @@ bool Initialize(const std::string& app_name, const std::string& desired_bridge_v
         }
 
         return func(wnd, dx_texture, vx, vy, aspect, zoom);
+    }
+
+    bool DrawInteropRGBDTextureDX(WINDOW_HANDLE wnd, IUnknown* dx_texture, unsigned int width, unsigned int height, unsigned int quiltWidth, unsigned int quiltHeight, unsigned int vx, unsigned int vy, float focus, float offset, float aspect, float zoom, int depth_loc)
+    {
+#ifndef _WIN32
+        return false;
+#endif
+        auto func = _DynamicLibraryLoader.LoadFunction<bool(*)(WINDOW_HANDLE, IUnknown*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, float, float, float, float, int)>(_libraryPath, "draw_interop_rgbd_texture_dx");
+
+        if (!func)
+        {
+            return false;
+        }
+
+        return func(wnd, dx_texture, width, height, quiltWidth, quiltHeight, vx, vy, focus, offset, aspect, zoom, depth_loc);
     }
 
     bool CreateTextureDX(WINDOW_HANDLE wnd, unsigned long width, unsigned long height, IUnknown** dx_texture)
